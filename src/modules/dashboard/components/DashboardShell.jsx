@@ -11,6 +11,8 @@ import {
   LogoutOutlined,
   UserOutlined,
   HomeOutlined,
+  MoonOutlined,
+  SunOutlined,
 } from '@ant-design/icons';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -29,6 +31,8 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const setWorkspace = useAppStore((s) => s.setWorkspace);
   const currentWorkspaceId = useAppStore((s) => s.currentWorkspaceId);
+  const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
 
   const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [documents, setDocuments] = useState([]);
@@ -103,11 +107,18 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
         onCollapse={toggleSidebar}
         trigger={null}
         width={260}
-        className="!bg-white dark:!bg-gray-900 border-r border-gray-200 dark:border-gray-700"
+        className="syncdoc-sidebar !border-r"
       >
-        <div className="flex items-center gap-2 px-4 h-16 border-b border-gray-200 dark:border-gray-700">
-          <FileTextOutlined className="text-indigo-500 text-xl" />
-          {!collapsed && <Typography.Title level={4} className="!mb-0 !text-indigo-600">SyncDoc</Typography.Title>}
+        <div
+          className="flex items-center gap-2 px-4 h-16 border-b"
+          style={{ borderColor: 'var(--sidebar-border)' }}
+        >
+          <FileTextOutlined className="syncdoc-brand text-xl" />
+          {!collapsed && (
+            <Typography.Title level={4} className="!mb-0 syncdoc-brand">
+              SyncDoc
+            </Typography.Title>
+          )}
         </div>
         <Menu mode="inline" items={sidebarMenu} selectedKeys={[pathname.includes('dashboard') ? 'dashboard' : currentWorkspaceId]} className="border-none" />
         {!collapsed && currentWorkspaceId && (
@@ -132,7 +143,12 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
                 dataSource={documents}
                 locale={{ emptyText: 'No documents' }}
                 renderItem={(doc) => (
-                  <List.Item className="!px-2 !py-1 cursor-pointer hover:bg-gray-50 rounded">
+                  <List.Item
+                    className="!px-2 !py-1 cursor-pointer rounded"
+                    style={{ transition: 'background var(--duration-fast)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-item-bg-hover)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
                     <Link href={`/workspace/${currentWorkspaceId}/document/${doc._id}`} className="text-sm truncate">
                       {doc.title}
                     </Link>
@@ -144,9 +160,15 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
         )}
       </Sider>
       <Layout>
-        <Header className="!bg-white dark:!bg-gray-900 !px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+        <Header className="syncdoc-header !px-4 flex items-center justify-between !border-b">
           <Button type="text" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={toggleSidebar} />
           <div className="flex items-center gap-4">
+            <Button
+              type="text"
+              aria-label="Toggle theme"
+              icon={theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggleTheme}
+            />
             <NetworkStatusBadge />
             <SyncStatusIndicator />
             <Dropdown menu={userMenu} placement="bottomRight">
@@ -157,7 +179,7 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
             </Dropdown>
           </div>
         </Header>
-        <Content className="p-6 bg-gray-50 dark:bg-gray-950">{children}</Content>
+        <Content className="syncdoc-content p-6">{children}</Content>
       </Layout>
     </Layout>
   );

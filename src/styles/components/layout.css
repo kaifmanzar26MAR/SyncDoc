@@ -1,0 +1,22 @@
+.ant-layout-sider-trigger {
+  background: var(--sidebar-trigger-bg) !important;
+  color: var(--sidebar-trigger-text) !important;
+}
+
+.syncdoc-sidebar {
+  background: var(--sidebar-bg) !important;
+  border-color: var(--sidebar-border) !important;
+}
+
+.syncdoc-header {
+  background: var(--header-bg) !important;
+  border-color: var(--header-border) !important;
+}
+
+.syncdoc-content {
+  background: var(--app-content-bg);
+}
+
+.syncdoc-brand {
+  color: var(--preset-primary);
+}

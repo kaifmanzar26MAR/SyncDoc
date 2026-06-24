@@ -12,7 +12,7 @@ export default function Document() {
   };
 
   return (
-    <Html lang="en">
+    <Html lang="en" data-theme="light">
       <Head>
         <meta name="description" content="Local-first collaborative document platform with offline sync" />
         <meta property="og:title" content="SyncDoc — Local-First Collaborative Documents" />
@@ -23,7 +23,7 @@ export default function Document() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
       </Head>
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+      <body className="min-h-screen antialiased">
         <Main />
         <NextScript />
       </body>

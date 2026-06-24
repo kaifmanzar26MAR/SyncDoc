@@ -1,0 +1,57 @@
+/**
+ * Light preset — derived surface, text, and accent tokens from base palette.
+ */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Surfaces */
+  --preset-bg-base: var(--color-neutral-50);
+  --preset-bg-subtle: var(--color-neutral-100);
+  --preset-bg-elevated: var(--color-neutral-0);
+  --preset-bg-muted: var(--color-neutral-100);
+  --preset-bg-inverse: var(--color-neutral-900);
+
+  /* Text */
+  --preset-text-primary: var(--color-neutral-900);
+  --preset-text-secondary: var(--color-neutral-600);
+  --preset-text-muted: var(--color-neutral-500);
+  --preset-text-disabled: var(--color-neutral-400);
+  --preset-text-inverse: var(--color-neutral-0);
+  --preset-text-link: var(--color-brand-600);
+  --preset-text-link-hover: var(--color-brand-700);
+
+  /* Borders */
+  --preset-border-default: var(--color-neutral-200);
+  --preset-border-subtle: var(--color-neutral-100);
+  --preset-border-strong: var(--color-neutral-300);
+  --preset-border-focus: var(--color-brand-500);
+
+  /* Brand / accent */
+  --preset-primary: var(--color-brand-500);
+  --preset-primary-hover: var(--color-brand-600);
+  --preset-primary-active: var(--color-brand-700);
+  --preset-primary-subtle: var(--color-brand-50);
+  --preset-primary-muted: var(--color-brand-100);
+
+  /* Status */
+  --preset-success: var(--color-success-500);
+  --preset-success-bg: var(--color-success-50);
+  --preset-warning: var(--color-warning-500);
+  --preset-warning-bg: var(--color-warning-50);
+  --preset-error: var(--color-error-500);
+  --preset-error-bg: var(--color-error-50);
+  --preset-info: var(--color-info-500);
+  --preset-info-bg: var(--color-info-50);
+
+  /* Chrome (nav, sidebar) */
+  --preset-sidebar-bg: var(--color-neutral-0);
+  --preset-sidebar-border: var(--color-neutral-200);
+  --preset-header-bg: var(--color-neutral-0);
+  --preset-header-border: var(--color-neutral-200);
+
+  /* Overlay */
+  --preset-overlay: rgb(17 24 39 / 0.45);
+  --preset-shadow-color: rgb(0 0 0 / 0.08);
+}

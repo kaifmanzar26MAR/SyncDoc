@@ -7,4 +7,6 @@ export const useAppStore = create((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
   setTheme: (theme) => set({ theme }),
+  toggleTheme: () =>
+    set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
 }));

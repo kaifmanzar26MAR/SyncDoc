@@ -1,0 +1,122 @@
+/**
+ * Semantic tokens — component-level variables derived from presets.
+ * Theme switch is handled by preset files (light / dark).
+ */
+
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  /* ── App shell ── */
+  --app-bg: var(--preset-bg-base);
+  --app-text: var(--preset-text-primary);
+  --app-content-bg: var(--preset-bg-base);
+
+  /* ── Button: primary ── */
+  --btn-primary-bg: var(--preset-primary);
+  --btn-primary-bg-hover: var(--preset-primary-hover);
+  --btn-primary-bg-active: var(--preset-primary-active);
+  --btn-primary-text: var(--color-neutral-0);
+  --btn-primary-border: transparent;
+
+  /* ── Button: secondary / default ── */
+  --btn-default-bg: var(--preset-bg-elevated);
+  --btn-default-bg-hover: var(--preset-bg-muted);
+  --btn-default-bg-active: var(--preset-bg-subtle);
+  --btn-default-text: var(--preset-text-primary);
+  --btn-default-border: var(--preset-border-default);
+
+  /* ── Button: ghost / text ── */
+  --btn-ghost-bg: transparent;
+  --btn-ghost-bg-hover: var(--preset-bg-muted);
+  --btn-ghost-text: var(--preset-text-secondary);
+  --btn-ghost-text-hover: var(--preset-primary);
+
+  /* ── Button: danger ── */
+  --btn-danger-bg: var(--preset-error);
+  --btn-danger-bg-hover: var(--color-error-600);
+  --btn-danger-bg-active: var(--color-error-700);
+  --btn-danger-text: var(--color-neutral-0);
+
+  /* ── Button: disabled (all variants) ── */
+  --btn-disabled-bg: var(--preset-bg-muted);
+  --btn-disabled-text: var(--preset-text-disabled);
+  --btn-disabled-border: var(--preset-border-subtle);
+
+  /* ── Input / textarea ── */
+  --input-bg: var(--preset-bg-elevated);
+  --input-bg-disabled: var(--preset-bg-muted);
+  --input-text: var(--preset-text-primary);
+  --input-text-placeholder: var(--preset-text-muted);
+  --input-text-disabled: var(--preset-text-disabled);
+  --input-border: var(--preset-border-default);
+  --input-border-hover: var(--preset-border-strong);
+  --input-border-focus: var(--preset-border-focus);
+  --input-border-error: var(--preset-error);
+  --input-ring-focus: rgb(99 102 241 / 0.2);
+  --input-shadow-focus: 0 0 0 2px var(--input-ring-focus);
+
+  /* ── Select / dropdown ── */
+  --select-bg: var(--preset-bg-elevated);
+  --select-border: var(--preset-border-default);
+  --select-border-hover: var(--preset-border-strong);
+  --select-option-bg-hover: var(--preset-bg-muted);
+  --select-option-bg-selected: var(--preset-primary-subtle);
+
+  /* ── Card ── */
+  --card-bg: var(--preset-bg-elevated);
+  --card-border: var(--preset-border-default);
+  --card-shadow: var(--shadow-sm);
+  --card-header-text: var(--preset-text-primary);
+
+  /* ── Sidebar ── */
+  --sidebar-bg: var(--preset-sidebar-bg);
+  --sidebar-border: var(--preset-sidebar-border);
+  --sidebar-text: var(--preset-text-secondary);
+  --sidebar-text-active: var(--preset-primary);
+  --sidebar-item-bg-hover: var(--preset-bg-muted);
+  --sidebar-item-bg-active: var(--preset-primary-subtle);
+  --sidebar-trigger-bg: var(--preset-bg-subtle);
+  --sidebar-trigger-text: var(--preset-text-secondary);
+
+  /* ── Header / navbar ── */
+  --header-bg: var(--preset-header-bg);
+  --header-border: var(--preset-header-border);
+  --header-text: var(--preset-text-primary);
+
+  /* ── Editor ── */
+  --editor-bg: var(--preset-bg-elevated);
+  --editor-text: var(--preset-text-primary);
+  --editor-toolbar-border: var(--preset-border-default);
+  --editor-placeholder: var(--preset-text-muted);
+
+  /* ── Tag / badge ── */
+  --tag-default-bg: var(--preset-bg-muted);
+  --tag-default-text: var(--preset-text-secondary);
+  --tag-success-bg: var(--preset-success-bg);
+  --tag-success-text: var(--preset-success);
+  --tag-warning-bg: var(--preset-warning-bg);
+  --tag-warning-text: var(--preset-warning);
+  --tag-error-bg: var(--preset-error-bg);
+  --tag-error-text: var(--preset-error);
+
+  /* ── Drawer / modal ── */
+  --drawer-bg: var(--preset-bg-elevated);
+  --drawer-border: var(--preset-border-default);
+  --drawer-overlay: var(--preset-overlay);
+
+  /* ── Sync / status indicators ── */
+  --status-online: var(--preset-success);
+  --status-offline: var(--preset-warning);
+  --status-syncing: var(--preset-primary);
+  --status-error: var(--preset-error);
+
+  /* ── Link ── */
+  --link-color: var(--preset-text-link);
+  --link-color-hover: var(--preset-text-link-hover);
+
+  /* ── Divider ── */
+  --divider-color: var(--preset-border-default);
+
+  /* ── Focus ring (global) ── */
+  --focus-ring: var(--input-shadow-focus);
+}

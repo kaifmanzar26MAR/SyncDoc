@@ -1,0 +1,56 @@
+/**
+ * Dark preset — same token names as light, different derivations.
+ */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --preset-bg-base: var(--color-neutral-950);
+  --preset-bg-subtle: var(--color-neutral-900);
+  --preset-bg-elevated: var(--color-neutral-900);
+  --preset-bg-muted: var(--color-neutral-800);
+  --preset-bg-inverse: var(--color-neutral-50);
+
+  /* Text */
+  --preset-text-primary: var(--color-neutral-50);
+  --preset-text-secondary: var(--color-neutral-300);
+  --preset-text-muted: var(--color-neutral-400);
+  --preset-text-disabled: var(--color-neutral-600);
+  --preset-text-inverse: var(--color-neutral-900);
+  --preset-text-link: var(--color-brand-400);
+  --preset-text-link-hover: var(--color-brand-300);
+
+  /* Borders */
+  --preset-border-default: var(--color-neutral-700);
+  --preset-border-subtle: var(--color-neutral-800);
+  --preset-border-strong: var(--color-neutral-600);
+  --preset-border-focus: var(--color-brand-400);
+
+  /* Brand / accent */
+  --preset-primary: var(--color-brand-500);
+  --preset-primary-hover: var(--color-brand-400);
+  --preset-primary-active: var(--color-brand-300);
+  --preset-primary-subtle: var(--color-brand-950);
+  --preset-primary-muted: var(--color-brand-900);
+
+  /* Status */
+  --preset-success: var(--color-success-500);
+  --preset-success-bg: rgb(16 185 129 / 0.12);
+  --preset-warning: var(--color-warning-500);
+  --preset-warning-bg: rgb(245 158 11 / 0.12);
+  --preset-error: var(--color-error-500);
+  --preset-error-bg: rgb(239 68 68 / 0.12);
+  --preset-info: var(--color-info-500);
+  --preset-info-bg: rgb(59 130 246 / 0.12);
+
+  /* Chrome */
+  --preset-sidebar-bg: var(--color-neutral-900);
+  --preset-sidebar-border: var(--color-neutral-700);
+  --preset-header-bg: var(--color-neutral-900);
+  --preset-header-border: var(--color-neutral-700);
+
+  /* Overlay */
+  --preset-overlay: rgb(0 0 0 / 0.6);
+  --preset-shadow-color: rgb(0 0 0 / 0.35);
+}

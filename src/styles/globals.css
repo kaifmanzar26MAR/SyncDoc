@@ -1,42 +1,51 @@
-@import "tailwindcss";
-
-:root {
-  --background: #f9fafb;
-  --foreground: #111827;
-  --primary: #6366f1;
-}
+@import 'tailwindcss';
+@import './tokens/index.css';
+@import './components/editor.css';
+@import './components/layout.css';
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--app-bg);
+  --color-foreground: var(--app-text);
+  --color-primary: var(--preset-primary);
+  --color-primary-hover: var(--preset-primary-hover);
+  --color-border: var(--preset-border-default);
+  --color-muted: var(--preset-text-muted);
+  --color-card: var(--card-bg);
+  --color-sidebar: var(--sidebar-bg);
+  --color-header: var(--header-bg);
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+  --radius-default: var(--radius-md);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.quill-editor .ql-container {
-  border: none !important;
-  font-size: 16px;
+a {
+  color: var(--link-color);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
 }
 
-.quill-editor .ql-toolbar {
-  border: none !important;
-  border-bottom: 1px solid #e5e7eb !important;
-  padding: 8px 0 !important;
+a:hover {
+  color: var(--link-color-hover);
 }
 
-.quill-editor .ql-editor {
-  min-height: 400px;
-  padding: 16px 0;
-  line-height: 1.7;
-}
-
-.ant-layout-sider-trigger {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }

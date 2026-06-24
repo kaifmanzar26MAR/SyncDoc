@@ -1,23 +1,39 @@
 'use client';
 
-import { ConfigProvider, theme as antTheme } from 'antd';
+import { useEffect } from 'react';
+import { ConfigProvider } from 'antd';
 import { useAppStore } from '@shared/stores/useAppStore';
+import { getAntdTheme } from '@shared/theme/antd-theme';
+
+const THEME_STORAGE_KEY = 'syncdoc-theme';
+
+export function applyDocumentTheme(theme) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+export function getStoredTheme() {
+  if (typeof window === 'undefined') return 'light';
+  return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+}
 
 export default function ThemeProvider({ children }) {
-  const appTheme = useAppStore((s) => s.theme);
-  const isDark = appTheme === 'dark';
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+
+  useEffect(() => {
+    const stored = getStoredTheme();
+    if (stored !== theme) setTheme(stored);
+    else applyDocumentTheme(theme);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    applyDocumentTheme(theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
-        token: {
-          colorPrimary: '#6366f1',
-          borderRadius: 8,
-          fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
-        },
-      }}
-    >
+    <ConfigProvider theme={getAntdTheme(theme)}>
       {children}
     </ConfigProvider>
   );
