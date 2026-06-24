@@ -153,7 +153,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       if (readOnly || !isDocumentReady) return;
       setContent(html);
       syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
-      socketEmittersRef.current.emitContentChange(html);
     },
     [readOnly, isDocumentReady, setContent, syncWorker],
   );
@@ -161,10 +160,8 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const handleTitleChange = useCallback(
     (e) => {
       if (readOnly || !isDocumentReady) return;
-      const nextTitle = e.target.value;
-      setTitle(nextTitle);
-      syncWorker.recordEdit('TITLE_UPDATE', { title: nextTitle });
-      socketEmittersRef.current.emitTitleChange(nextTitle);
+      setTitle(e.target.value);
+      syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
     },
     [readOnly, isDocumentReady, setTitle, syncWorker],
   );

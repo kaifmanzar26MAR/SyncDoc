@@ -2,6 +2,7 @@
 
 import { List, Typography } from 'antd';
 import { useSyncStore } from '@shared/stores/useSyncStore';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 
 export default function PresencePanel() {
   const collaborators = useSyncStore((s) => s.collaborators);
@@ -16,14 +17,20 @@ export default function PresencePanel() {
         className="mt-2"
         dataSource={collaborators}
         locale={{ emptyText: 'Only you' }}
-        renderItem={(item) => (
-          <List.Item className="!px-0 !py-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-              <span className="text-sm">{item.name}</span>
-            </div>
-          </List.Item>
-        )}
+        renderItem={(item) => {
+          const label = item.name || item.email || '';
+          return (
+            <List.Item className="!px-0 !py-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: getUserColorFromInitial(label) }}
+                />
+                <span className="text-sm">{label}</span>
+              </div>
+            </List.Item>
+          );
+        }}
       />
     </div>
   );

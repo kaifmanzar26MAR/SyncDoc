@@ -25,10 +25,6 @@
   white-space: nowrap;
 }
 
-.dashboard-avatar.ant-avatar {
-  background: var(--gdocs-primary, #1a73e8) !important;
-}
-
 .dashboard-shell-btn.ant-btn {
   color: var(--preset-text-secondary) !important;
 }

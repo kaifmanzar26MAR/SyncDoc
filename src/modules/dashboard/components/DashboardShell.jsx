@@ -19,6 +19,7 @@ import { useAppStore } from '@shared/stores/useAppStore';
 import SyncStatusIndicator from '@shared/components/sync/SyncStatusIndicator';
 import NetworkStatusBadge from '@shared/components/sync/NetworkStatusBadge';
 import { DashboardShellProvider, useDashboardShell } from './DashboardShellContext';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 
 function getSelectedNavKey(pathname) {
   if (pathname.startsWith('/dashboard/documents')) return 'documents';
@@ -39,6 +40,9 @@ function DashboardTopbar({ collapsed, toggleSidebar, userMenu, session }) {
       setRefreshing(false);
     }
   }, [hasRefresh, onRefresh, refreshing]);
+
+  const userLabel = session?.user?.name || session?.user?.email || '';
+  const userAvatarColor = getUserColorFromInitial(userLabel);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between bg-header px-4">
@@ -70,7 +74,13 @@ function DashboardTopbar({ collapsed, toggleSidebar, userMenu, session }) {
         <SyncStatusIndicator />
         <Dropdown menu={userMenu} placement="bottomRight">
           <div className="flex cursor-pointer items-center gap-2 rounded-full px-2 py-1 transition-colors hover:bg-[var(--sidebar-item-bg-hover)]">
-            <Avatar size="small" icon={<UserOutlined />} className="dashboard-avatar" />
+            <Avatar
+              size="small"
+              icon={<UserOutlined />}
+              style={{ backgroundColor: userAvatarColor }}
+            >
+              {userLabel[0]?.toUpperCase()}
+            </Avatar>
             <span className="hidden max-w-[140px] truncate text-sm text-foreground sm:inline">
               {session?.user?.name}
             </span>

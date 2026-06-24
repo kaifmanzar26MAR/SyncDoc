@@ -16,6 +16,7 @@ import {
   Popconfirm,
 } from 'antd';
 import { CopyOutlined, LinkOutlined, MailOutlined, LockOutlined, UserOutlined, DeleteOutlined } from '@ant-design/icons';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 
 const { Text } = Typography;
 
@@ -248,8 +249,11 @@ export default function ShareDocumentModal({ open, onClose, documentId, canShare
                 >
                   <List.Item.Meta
                     avatar={
-                      <Avatar icon={<UserOutlined />} className="bg-[var(--gdocs-primary)]">
-                        {person.name?.[0]?.toUpperCase()}
+                      <Avatar
+                        icon={<UserOutlined />}
+                        style={{ backgroundColor: getUserColorFromInitial(displayName) }}
+                      >
+                        {displayName[0]?.toUpperCase()}
                       </Avatar>
                     }
                     title={

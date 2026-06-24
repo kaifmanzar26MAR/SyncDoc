@@ -3,9 +3,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useSyncStore } from '@shared/stores/useSyncStore';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 import { getSocketUrl } from '@shared/lib/socket/socket-url';
 
-const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444'];
 const CONTENT_EMIT_MS = 120;
 
 export function useDocumentSocket({ documentId, user, readOnly, onRemoteChange }) {
@@ -64,13 +64,14 @@ export function useDocumentSocket({ documentId, user, readOnly, onRemoteChange }
     });
     socketRef.current = socket;
 
-    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    const displayName = user.name || user.email || '';
+    const color = getUserColorFromInitial(displayName);
 
     const joinPresence = () => {
       socket.emit('presence:join', {
         documentId,
         userId: user.id,
-        name: user.name || user.email,
+        name: displayName,
         color,
       });
     };

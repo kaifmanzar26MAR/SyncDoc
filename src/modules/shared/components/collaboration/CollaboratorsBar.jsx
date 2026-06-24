@@ -2,6 +2,7 @@
 
 import { Avatar, Tooltip, Space } from 'antd';
 import { useSyncStore } from '@shared/stores/useSyncStore';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 
 export default function CollaboratorsBar() {
   const collaborators = useSyncStore((s) => s.collaborators);
@@ -11,11 +12,16 @@ export default function CollaboratorsBar() {
   return (
     <Space size={4}>
       <Avatar.Group max={{ count: 4 }} size="small">
-        {collaborators.map((c) => (
-          <Tooltip key={c.userId} title={c.name}>
-            <Avatar style={{ backgroundColor: c.color }}>{c.name?.[0]?.toUpperCase()}</Avatar>
-          </Tooltip>
-        ))}
+        {collaborators.map((c) => {
+          const label = c.name || c.email || '';
+          return (
+            <Tooltip key={c.userId} title={label}>
+              <Avatar style={{ backgroundColor: getUserColorFromInitial(label) }}>
+                {label[0]?.toUpperCase()}
+              </Avatar>
+            </Tooltip>
+          );
+        })}
       </Avatar.Group>
     </Space>
   );

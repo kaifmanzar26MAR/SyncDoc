@@ -19,6 +19,7 @@ import SyncStatusIndicator from '@shared/components/sync/SyncStatusIndicator';
 import NetworkStatusBadge from '@shared/components/sync/NetworkStatusBadge';
 import CollaboratorsBar from '@shared/components/collaboration/CollaboratorsBar';
 import ShareDocumentModal from '@document/components/ShareDocumentModal';
+import { getUserColorFromInitial } from '@shared/utils/user-color';
 
 export default function DocumentHeader({
   title,
@@ -34,6 +35,8 @@ export default function DocumentHeader({
   const isDirty = useDocumentStore((s) => s.isDirty);
   const toggleVersionDrawer = useDocumentStore((s) => s.toggleVersionDrawer);
   const canShare = !readOnly;
+  const userLabel = session?.user?.name || session?.user?.email || '';
+  const userAvatarColor = getUserColorFromInitial(userLabel);
 
   const userMenu = {
     items: [
@@ -107,7 +110,13 @@ export default function DocumentHeader({
             </Button>
 
             <Dropdown menu={userMenu} placement="bottomRight">
-              <Avatar className="gdocs-avatar cursor-pointer" icon={<UserOutlined />} />
+              <Avatar
+                className="cursor-pointer"
+                style={{ backgroundColor: userAvatarColor }}
+                icon={<UserOutlined />}
+              >
+                {userLabel[0]?.toUpperCase()}
+              </Avatar>
             </Dropdown>
           </div>
         </div>

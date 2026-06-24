@@ -93,10 +93,6 @@
   border-radius: 24px !important;
 }
 
-.gdocs-avatar {
-  background: var(--gdocs-primary, #1a73e8) !important;
-}
-
 .gdocs-save-dirty {
   color: var(--gdocs-primary, #1a73e8) !important;
 }
