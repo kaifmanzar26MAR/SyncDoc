@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f9fafb;
+  --foreground: #111827;
+  --primary: #6366f1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.quill-editor .ql-container {
+  border: none !important;
+  font-size: 16px;
+}
+
+.quill-editor .ql-toolbar {
+  border: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  padding: 8px 0 !important;
+}
+
+.quill-editor .ql-editor {
+  min-height: 400px;
+  padding: 16px 0;
+  line-height: 1.7;
+}
+
+.ant-layout-sider-trigger {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}

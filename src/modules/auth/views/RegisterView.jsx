@@ -1,0 +1,92 @@
+'use client';
+
+import { useState } from 'react';
+import { Form, Input, Button, Card, Typography, Steps, message } from 'antd';
+import Link from 'next/link';
+import { registerUser, verifyOtp } from '@auth-module/data/service/AuthApis';
+
+export default function RegisterView() {
+  const [step, setStep] = useState(0);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const register = async (values) => {
+    setLoading(true);
+    try {
+      await registerUser(values);
+      setEmail(values.email);
+      setStep(1);
+      message.success('OTP sent to your email');
+    } catch (err) {
+      message.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtpHandler = async (values) => {
+    setLoading(true);
+    try {
+      await verifyOtp({ email, otp: values.otp });
+      setStep(2);
+      message.success('Account verified! Check email for password.');
+    } catch (err) {
+      message.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-white p-4">
+      <Card className="w-full max-w-md shadow-lg">
+        <Typography.Title level={2} className="!mb-1 text-center">Create Account</Typography.Title>
+        <Steps current={step} size="small" className="mb-6" items={[{ title: 'Register' }, { title: 'Verify' }, { title: 'Done' }]} />
+
+        {step === 0 && (
+          <Form layout="vertical" onFinish={register}>
+            <Form.Item name="name" label="Full Name" rules={[{ required: true, min: 2 }]}>
+              <Input size="large" />
+            </Form.Item>
+            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
+              <Input size="large" />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
+              Send OTP
+            </Button>
+          </Form>
+        )}
+
+        {step === 1 && (
+          <Form layout="vertical" onFinish={verifyOtpHandler}>
+            <Typography.Paragraph type="secondary">
+              Enter the 6-digit code sent to {email}
+            </Typography.Paragraph>
+            <Form.Item name="otp" label="OTP" rules={[{ required: true, len: 6 }]}>
+              <Input size="large" maxLength={6} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
+              Verify
+            </Button>
+          </Form>
+        )}
+
+        {step === 2 && (
+          <div className="text-center py-4">
+            <Typography.Title level={4}>You&apos;re all set!</Typography.Title>
+            <Typography.Paragraph>
+              A default password has been sent to your email. Use it to sign in and reset your password.
+            </Typography.Paragraph>
+            <Link href="/login">
+              <Button type="primary" size="large">Go to Login</Button>
+            </Link>
+          </div>
+        )}
+
+        <div className="text-center mt-4 text-sm">
+          Have an account? <Link href="/login" className="text-indigo-600">Sign in</Link>
+        </div>
+      </Card>
+    </div>
+  );
+}
