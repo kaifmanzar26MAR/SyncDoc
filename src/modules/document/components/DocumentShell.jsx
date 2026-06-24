@@ -2,8 +2,8 @@
 
 import { useEffect, useCallback, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Button, Spin } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { Button, Spin, Modal, message, Space } from 'antd';
+import { CloseOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useSession } from 'next-auth/react';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { useSyncStore } from '@shared/stores/useSyncStore';
@@ -73,6 +73,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const [compareChangeLogs, setCompareChangeLogs] = useState([]);
   const [compareLogsLoading, setCompareLogsLoading] = useState(false);
+  const [restoringCompare, setRestoringCompare] = useState(false);
 
   useEffect(() => {
     compareActiveRef.current = Boolean(compareVersion);
@@ -318,6 +319,27 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     ],
   );
 
+  const handleCompareRestore = useCallback(() => {
+    if (!compareVersion || readOnly) return;
+
+    Modal.confirm({
+      title: 'Restore this snapshot?',
+      content: 'The document will revert to this snapshot. A new restore entry will be added to history.',
+      okText: 'Restore',
+      onOk: async () => {
+        setRestoringCompare(true);
+        try {
+          await handleRestore(compareVersion);
+          message.success('Snapshot restored');
+        } catch (err) {
+          message.error(err.message || 'Restore failed');
+        } finally {
+          setRestoringCompare(false);
+        }
+      },
+    });
+  }, [compareVersion, readOnly, handleRestore]);
+
   return (
     <div className="flex h-dvh min-h-screen flex-col bg-[var(--gdocs-canvas-bg)]">
       <DocumentHeader
@@ -340,9 +362,22 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
                 <span className="ml-2 inline-block h-2 w-2 rounded-sm bg-[#ea4335] align-middle" /> removed
               </span>
             </span>
-            <Button size="small" icon={<CloseOutlined />} onClick={clearCompare}>
-              Exit compare
-            </Button>
+            <Space size="small">
+              {!readOnly && (
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<RollbackOutlined />}
+                  loading={restoringCompare}
+                  onClick={handleCompareRestore}
+                >
+                  Restore
+                </Button>
+              )}
+              <Button size="small" icon={<CloseOutlined />} onClick={clearCompare}>
+                Exit compare
+              </Button>
+            </Space>
           </div>
         )}
 

@@ -11,78 +11,35 @@ import {
   Tag,
   Empty,
   Spin,
-  Collapse,
   Avatar,
+  Tooltip,
   message,
 } from 'antd';
-import { RollbackOutlined, DiffOutlined, UserOutlined } from '@ant-design/icons';
+import { RollbackOutlined, DiffOutlined } from '@ant-design/icons';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { getUserColorFromInitial } from '@shared/utils/user-color';
 import { formatSnapshotDate } from '@shared/utils/content-diff';
 
-const SNAPSHOT_TYPE_LABELS = {
-  session_start: 'Session start',
-  session_auto: 'Auto snapshot',
-  session_end: 'Session end',
-  restore: 'Restore',
-  manual: 'Manual',
-};
-
-function ChangeLogPanel({ documentId, sessionId }) {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    setLoading(true);
-    fetch(`/api/documents/${documentId}/edit-session/${sessionId}/changes`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [documentId, sessionId]);
-
-  if (loading) return <Spin size="small" />;
-  if (!data?.users?.length) return <Typography.Text type="secondary">No changes logged</Typography.Text>;
+function EditorAvatars({ editors = [] }) {
+  if (!editors.length) return null;
 
   return (
-    <div className="mt-2 space-y-3">
-      {data.users.map((user) => {
-        const label = user.name || user.email || 'User';
+    <Avatar.Group max={{ count: 5 }} size={18}>
+      {editors.map((editor) => {
+        const label = editor.name || editor.email || 'User';
         return (
-          <div key={user.userId} className="rounded border border-gray-100 p-2">
-            <div className="mb-1 flex items-center gap-2">
-              <Avatar
-                size="small"
-                style={{ backgroundColor: getUserColorFromInitial(label) }}
-                icon={<UserOutlined />}
-              >
-                {label[0]?.toUpperCase()}
-              </Avatar>
-              <Typography.Text strong className="text-xs">
-                {label}
-              </Typography.Text>
-              <Tag className="!m-0">{user.changes.length} changes</Tag>
-            </div>
-            <ul className="m-0 list-none space-y-1 pl-1">
-              {user.changes.map((change) => (
-                <li key={change._id} className="text-xs text-gray-600">
-                  <span className="font-medium">{change.operationType.replace('_', ' ').toLowerCase()}</span>
-                  {change.payload?.preview && (
-                    <span className="ml-1 text-gray-400">— {change.payload.preview}</span>
-                  )}
-                  {change.payload?.title && (
-                    <span className="ml-1 text-gray-400">— {change.payload.title}</span>
-                  )}
-                  <div className="text-[10px] text-gray-400">
-                    {new Date(change.createdAt).toLocaleTimeString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Tooltip key={editor.userId || label} title={label}>
+            <Avatar
+              size={18}
+              className="!text-[10px] !leading-[18px]"
+              style={{ backgroundColor: getUserColorFromInitial(label) }}
+            >
+              {label[0]?.toUpperCase()}
+            </Avatar>
+          </Tooltip>
         );
       })}
-    </div>
+    </Avatar.Group>
   );
 }
 
@@ -152,58 +109,21 @@ export default function VersionHistoryDrawer({ documentId, onRestore }) {
           items={versions.map((v) => ({
             children: (
               <div className="pb-2">
-                <Typography.Text strong>{formatSnapshotDate(v.createdAt)}</Typography.Text>
-                {v.snapshotType && (
-                  <Tag color="blue" className="ml-2">
-                    {SNAPSHOT_TYPE_LABELS[v.snapshotType] || v.snapshotType}
-                  </Tag>
-                )}
-                {v.restoreOf && (
-                  <Tag color="purple" className="ml-1">
-                    Restored from {formatSnapshotDate(
-                      versions.find((x) => x.version === v.restoreOf)?.createdAt,
-                    ) || `v${v.restoreOf}`}
-                  </Tag>
-                )}
-                {v.createdBy && (
-                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                    <Avatar
-                      size={16}
-                      style={{
-                        backgroundColor: getUserColorFromInitial(
-                          v.createdBy.name || v.createdBy.email,
-                        ),
-                      }}
-                    >
-                      {(v.createdBy.name || v.createdBy.email)?.[0]?.toUpperCase()}
-                    </Avatar>
-                    {v.createdBy.name || v.createdBy.email}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Typography.Text strong>{formatSnapshotDate(v.createdAt)}</Typography.Text>
+                  <EditorAvatars editors={v.editors} />
+                </div>
+                {(v.snapshotType === 'restore' || v.restoreOf) && (
+                  <div className="mt-1">
+                    <Tag color="purple" className="!m-0">
+                      Restored
+                      {(() => {
+                        const fromDate = versions.find((x) => x.version === v.restoreOf)?.createdAt;
+                        return fromDate ? ` from ${formatSnapshotDate(fromDate)}` : '';
+                      })()}
+                    </Tag>
                   </div>
                 )}
-                {v.changeSummary?.byUser?.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {v.changeSummary.byUser.map((entry) => (
-                      <Tag key={entry.email} className="!text-[10px]">
-                        {entry.email}: {entry.count}
-                      </Tag>
-                    ))}
-                  </div>
-                )}
-                {v.sessionId &&
-                  ['session_auto', 'session_end', 'session_start'].includes(v.snapshotType) && (
-                    <Collapse
-                      ghost
-                      size="small"
-                      className="!mt-1"
-                      items={[
-                        {
-                          key: 'changes',
-                          label: <span className="text-xs">Per-user change log</span>,
-                          children: <ChangeLogPanel documentId={documentId} sessionId={v.sessionId} />,
-                        },
-                      ]}
-                    />
-                  )}
                 <Space className="mt-2">
                   <Button
                     size="small"

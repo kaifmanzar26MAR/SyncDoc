@@ -331,27 +331,37 @@ export async function getVersionsWithSessions(documentId) {
   const versionsWithMeta = await Promise.all(
     versions.map(async (v) => {
       const sessionId = v.sessionId?.toString();
-      let changeSummary = null;
-      if (sessionId && ['session_auto', 'session_end'].includes(v.snapshotType)) {
+      let editors = [];
+
+      if (sessionId) {
         const logs = await DocumentChangeLog.find({
           sessionId,
           createdAt: { $lte: v.updatedAt || v.createdAt },
         })
-          .sort({ createdAt: -1 })
-          .limit(20)
           .populate('userId', 'name email')
           .lean();
 
-        const userCounts = {};
+        const editorMap = new Map();
         logs.forEach((log) => {
-          const key = log.userId?.email || log.userId?._id?.toString();
-          userCounts[key] = (userCounts[key] || 0) + 1;
+          const uid = log.userId?._id?.toString();
+          if (!uid || editorMap.has(uid)) return;
+          editorMap.set(uid, {
+            userId: uid,
+            name: log.userId?.name || null,
+            email: log.userId?.email || '',
+          });
         });
+        editors = [...editorMap.values()];
+      }
 
-        changeSummary = {
-          totalChanges: logs.length,
-          byUser: Object.entries(userCounts).map(([email, count]) => ({ email, count })),
-        };
+      if (!editors.length && v.createdBy) {
+        editors = [
+          {
+            userId: v.createdBy._id?.toString(),
+            name: v.createdBy.name,
+            email: v.createdBy.email,
+          },
+        ];
       }
 
       return {
@@ -369,9 +379,9 @@ export async function getVersionsWithSessions(documentId) {
               email: v.createdBy.email,
             }
           : null,
+        editors,
         snapshot: { title: v.snapshot?.title, content: v.snapshot?.content },
         session: sessionId ? serializeSession(sessionMap.get(sessionId) || null) : null,
-        changeSummary,
       };
     }),
   );
