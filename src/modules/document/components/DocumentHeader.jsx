@@ -5,7 +5,6 @@ import { Button, Input, Dropdown, Avatar, Tooltip, Divider } from 'antd';
 import {
   FileTextOutlined,
   HistoryOutlined,
-  CameraOutlined,
   SaveOutlined,
   ShareAltOutlined,
   LogoutOutlined,
@@ -25,7 +24,6 @@ export default function DocumentHeader({
   title,
   onTitleChange,
   readOnly,
-  onSnapshot,
   onSave,
   documentId,
   workspaceId,
@@ -77,9 +75,6 @@ export default function DocumentHeader({
 
             {!readOnly && (
               <div className="gdocs-toolbar-actions hidden md:flex">
-                <Tooltip title="Save snapshot">
-                  <Button type="text" icon={<CameraOutlined />} onClick={onSnapshot} />
-                </Tooltip>
                 <Tooltip title="Save">
                   <Button
                     type="text"

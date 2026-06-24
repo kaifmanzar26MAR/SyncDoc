@@ -61,6 +61,7 @@ export const syncOperationSchema = z.object({
 export const syncBatchSchema = z.object({
   operations: z.array(syncOperationSchema).min(1).max(MAX_OPS_PER_BATCH),
   lastPullClock: z.number().int().nonnegative().default(0),
+  sessionId: z.string().optional(),
 });
 
 export const versionCreateSchema = z.object({

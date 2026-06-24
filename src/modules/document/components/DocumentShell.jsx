@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useLayoutEffect, useState, useRef } from 'react';
+import { useEffect, useCallback, useMemo, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Spin } from 'antd';
 import { useSession } from 'next-auth/react';
@@ -9,8 +9,9 @@ import { useSyncStore } from '@shared/stores/useSyncStore';
 import DocumentHeader from '@document/components/DocumentHeader';
 import VersionHistoryDrawer from '@shared/components/version/VersionHistoryDrawer';
 import { createSyncWorker } from '@shared/lib/sync-engine';
-import { saveDocumentLocal, getDocumentLocal, saveVersionLocal } from '@shared/lib/db/dexie';
+import { saveDocumentLocal, getDocumentLocal } from '@shared/lib/db/dexie';
 import { useDocumentSocket } from '@document/hooks/useDocumentSocket';
+import { useEditSession } from '@document/hooks/useEditSession';
 
 const QuillEditor = dynamic(() => import('@shared/components/editor/QuillEditor'), {
   ssr: false,
@@ -63,7 +64,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const setStatus = useSyncStore((s) => s.setStatus);
   const setPendingCount = useSyncStore((s) => s.setPendingCount);
-  const setLastSyncedAt = useSyncStore((s) => s.setLastSyncedAt);
 
   const syncWorker = useMemo(
     () =>
@@ -79,7 +79,11 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     [documentId, setStatus, setPendingCount, applyRemoteUpdate, markClean],
   );
 
-  const socketEmittersRef = useRef({ emitContentChange: () => {}, emitTitleChange: () => {} });
+  const { sessionId, onEditActivity } = useEditSession(documentId, readOnly);
+
+  useEffect(() => {
+    syncWorker.setEditSession(sessionId);
+  }, [syncWorker, sessionId]);
 
   const handleRemoteChange = useCallback(
     async (payload) => {
@@ -108,8 +112,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     readOnly,
     onRemoteChange: handleRemoteChange,
   });
-
-  socketEmittersRef.current = { emitContentChange, emitTitleChange };
 
   useLayoutEffect(() => {
     const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
@@ -153,8 +155,10 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       if (readOnly || !isDocumentReady) return;
       setContent(html);
       syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
+      emitContentChange(html);
+      onEditActivity();
     },
-    [readOnly, isDocumentReady, setContent, syncWorker],
+    [readOnly, isDocumentReady, setContent, syncWorker, emitContentChange, onEditActivity],
   );
 
   const handleTitleChange = useCallback(
@@ -162,8 +166,10 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       if (readOnly || !isDocumentReady) return;
       setTitle(e.target.value);
       syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
+      emitTitleChange(e.target.value);
+      onEditActivity();
     },
-    [readOnly, isDocumentReady, setTitle, syncWorker],
+    [readOnly, isDocumentReady, setTitle, syncWorker, emitTitleChange, onEditActivity],
   );
 
   const handleSave = useCallback(async () => {
@@ -176,26 +182,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     });
     markClean();
   }, [documentId, workspaceId, title, content, markClean]);
-
-  const handleSnapshot = useCallback(async () => {
-    const snapshot = { title, content };
-    await saveVersionLocal({
-      documentId,
-      version: Date.now(),
-      snapshot,
-      createdAt: new Date().toISOString(),
-      localOnly: true,
-      label: 'Manual snapshot',
-    });
-    if (!readOnly) {
-      await fetch(`/api/documents/${documentId}/versions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: 'Manual snapshot' }),
-      });
-    }
-    setLastSyncedAt(new Date().toISOString());
-  }, [documentId, title, content, readOnly, setLastSyncedAt]);
 
   const handleRestore = useCallback(
     async (version) => {
@@ -212,9 +198,10 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
           content: data.document.content,
           restoreOf: version.version,
         });
+        onEditActivity();
       }
     },
-    [documentId, setTitle, setContent, syncWorker],
+    [documentId, setTitle, setContent, syncWorker, onEditActivity],
   );
 
   return (
@@ -223,7 +210,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
         title={title}
         onTitleChange={handleTitleChange}
         readOnly={readOnly}
-        onSnapshot={handleSnapshot}
         onSave={handleSave}
         documentId={documentId}
         workspaceId={workspaceId}

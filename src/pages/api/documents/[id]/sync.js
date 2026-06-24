@@ -12,6 +12,7 @@ import {
 import { rateLimit } from '@shared/lib/security/rate-limit';
 import { getClientIpFromReq, sendJson, methodNotAllowed } from '@shared/utils/api-response';
 import { broadcastDocumentChange } from '@shared/lib/socket/broadcast';
+import { logDocumentChange } from '@document/data/service/edit-session.service';
 
 function validateYjsUpdate(base64) {
   if (!base64) return true;
@@ -85,6 +86,7 @@ export default async function handler(req, res) {
 
     const applied = [];
     let lastClock = parsed.data.lastPullClock;
+    const editSessionId = parsed.data.sessionId || null;
 
     for (const op of parsed.data.operations) {
       if (op.operationType === 'YJS_UPDATE' && !validateYjsUpdate(op.payload?.yjsState)) continue;
@@ -97,9 +99,22 @@ export default async function handler(req, res) {
           payload: op.payload,
           logicalClock: op.logicalClock,
           idempotencyKey: op.idempotencyKey,
+          userId: session.user.id,
+          sessionId: editSessionId,
           synced: true,
         });
         applied.push(op);
+
+        if (editSessionId && ['CONTENT_UPDATE', 'TITLE_UPDATE', 'RESTORE'].includes(op.operationType)) {
+          await logDocumentChange({
+            documentId: id,
+            sessionId: editSessionId,
+            userId: session.user.id,
+            operationType: op.operationType,
+            payload: op.payload,
+            logicalClock: op.logicalClock,
+          });
+        }
 
         if (op.operationType === 'CONTENT_UPDATE' && op.payload?.content !== undefined) {
           doc.content = sanitizeHtml(op.payload.content);

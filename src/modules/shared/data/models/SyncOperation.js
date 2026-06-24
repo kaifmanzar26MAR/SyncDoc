@@ -9,6 +9,8 @@ const SyncOperationSchema = new mongoose.Schema(
     logicalClock: { type: Number, required: true },
     synced: { type: Boolean, default: true },
     idempotencyKey: { type: String, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'EditSession', index: true },
   },
   { timestamps: true }
 );

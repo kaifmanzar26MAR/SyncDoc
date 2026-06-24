@@ -10,6 +10,12 @@ const DocumentVersionSchema = new mongoose.Schema(
       yjsState: Buffer,
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'EditSession', index: true },
+    snapshotType: {
+      type: String,
+      enum: ['session_start', 'session_auto', 'session_end', 'restore', 'manual'],
+      default: 'manual',
+    },
     label: { type: String, default: '' },
     restoreOf: { type: Number, default: null },
   },

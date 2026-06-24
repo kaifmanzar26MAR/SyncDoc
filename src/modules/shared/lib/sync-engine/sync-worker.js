@@ -21,6 +21,11 @@ export class SyncWorker {
     this.debounceTimer = null;
     this.syncing = false;
     this.syncedKeys = new Set();
+    this.editSessionId = null;
+  }
+
+  setEditSession(sessionId) {
+    this.editSessionId = sessionId || null;
   }
 
   async init() {
@@ -102,6 +107,7 @@ export class SyncWorker {
             idempotencyKey: op.idempotencyKey,
           })),
           lastPullClock: meta?.lastPullClock || 0,
+          sessionId: this.editSessionId || undefined,
         }),
       });
 
