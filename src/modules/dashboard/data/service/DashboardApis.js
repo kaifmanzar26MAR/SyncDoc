@@ -1,3 +1,9 @@
+export async function fetchDocumentCounts() {
+  const res = await fetch('/api/documents?countsOnly=true');
+  if (!res.ok) throw new Error('Failed to fetch document counts');
+  return res.json();
+}
+
 export async function fetchAllDocuments({
   filter = 'all',
   search = '',

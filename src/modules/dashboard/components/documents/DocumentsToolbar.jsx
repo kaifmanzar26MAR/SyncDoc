@@ -28,9 +28,11 @@ export default function DocumentsToolbar({
   onFilterChange,
   view,
   onViewChange,
+  showFilter = true,
+  className = '',
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+    <div className={`flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch ${className}`}>
       <Input
         allowClear
         size="middle"
@@ -42,14 +44,16 @@ export default function DocumentsToolbar({
       />
 
       <div className="ml-auto flex shrink-0 items-center gap-2 max-sm:ml-0 max-sm:flex-wrap max-sm:justify-end">
-        <Select
-          size="middle"
-          value={filter}
-          onChange={onFilterChange}
-          options={FILTER_OPTIONS}
-          className="w-40"
-          popupMatchSelectWidth={false}
-        />
+        {showFilter && (
+          <Select
+            size="middle"
+            value={filter}
+            onChange={onFilterChange}
+            options={FILTER_OPTIONS}
+            className="w-40"
+            popupMatchSelectWidth={false}
+          />
+        )}
 
         <div className={toggleWrap} role="group" aria-label="View mode">
           <button

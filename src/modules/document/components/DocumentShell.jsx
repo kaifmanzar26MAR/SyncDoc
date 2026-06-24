@@ -11,6 +11,7 @@ import DocumentHeader from '@document/components/DocumentHeader';
 import VersionHistoryDrawer from '@shared/components/version/VersionHistoryDrawer';
 import { createSyncWorker } from '@shared/lib/sync-engine';
 import { saveDocumentLocal, getDocumentLocal } from '@shared/lib/db/dexie';
+import { recordRecentDocument } from '@shared/utils/recent-documents';
 import { useDocumentSocket } from '@document/hooks/useDocumentSocket';
 import { useEditSession } from '@document/hooks/useEditSession';
 import { buildCompareHtml, formatSnapshotDate } from '@shared/utils/content-diff';
@@ -203,6 +204,13 @@ export default function DocumentShell({
       if (resolvedDoc) {
         setActiveDocument(resolvedDoc);
         await saveDocumentLocal(resolvedDoc);
+        recordRecentDocument({
+          _id: documentId,
+          title: resolvedDoc.title,
+          workspaceId,
+          updatedAt: resolvedDoc.updatedAt,
+          isOwned: userRole === 'OWNER',
+        });
       } else if (!serverDoc) {
         message.warning('No local copy found. Reconnect to load this document.', 5);
       }

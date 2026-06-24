@@ -32,7 +32,15 @@ export default async function handler(req, res) {
       });
     }
 
-    const { listDocumentsForUser } = await import('@shared/data/services/document-list.service');
+    const { listDocumentsForUser, getDocumentCountsForUser } = await import(
+      '@shared/data/services/document-list.service'
+    );
+
+    if (req.query.countsOnly === 'true') {
+      const counts = await getDocumentCountsForUser(session.user.id);
+      return sendJson(res, 200, { counts });
+    }
+
     const page = req.query.page;
     const pageSize = req.query.pageSize;
     const search = typeof req.query.search === 'string' ? req.query.search : '';

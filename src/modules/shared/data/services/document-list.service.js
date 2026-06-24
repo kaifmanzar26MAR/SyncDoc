@@ -100,3 +100,23 @@ export async function listDocumentsForUser(userId, options = {}) {
     },
   };
 }
+
+export async function getDocumentCountsForUser(userId) {
+  await connectDB();
+
+  const ownedWorkspaces = await Workspace.find({ ownerId: userId }).select('_id').lean();
+  const ownedWorkspaceIds = ownedWorkspaces.map((w) => w._id);
+
+  const memberships = await DocumentMember.find({ userId }).select('documentId').lean();
+  const memberDocIds = memberships.map((m) => m.documentId);
+
+  const ownedQuery = buildFilterQuery('owned', userId, ownedWorkspaceIds, memberDocIds);
+  const sharedQuery = buildFilterQuery('shared', userId, ownedWorkspaceIds, memberDocIds);
+
+  const [owned, shared] = await Promise.all([
+    Document.countDocuments(ownedQuery),
+    Document.countDocuments(sharedQuery),
+  ]);
+
+  return { owned, shared, total: owned + shared };
+}

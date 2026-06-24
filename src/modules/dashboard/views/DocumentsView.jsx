@@ -124,6 +124,7 @@ export default function DocumentsView({ workspaces = [] }) {
         onFilterChange={setFilter}
         view={view}
         onViewChange={setView}
+        className="mb-5"
       />
 
       <DocumentCards
