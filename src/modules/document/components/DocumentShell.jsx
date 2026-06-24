@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Spin } from 'antd';
 import { useSession } from 'next-auth/react';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { useSyncStore } from '@shared/stores/useSyncStore';
@@ -13,12 +14,44 @@ import { usePresence } from '@document/hooks/usePresence';
 
 const QuillEditor = dynamic(() => import('@shared/components/editor/QuillEditor'), {
   ssr: false,
-  loading: () => <div className="p-8 text-center text-gray-400">Loading editor...</div>,
+  loading: () => (
+    <div className="flex min-h-[297mm] items-center justify-center">
+      <Spin />
+    </div>
+  ),
 });
+
+function normalizeDocument(documentId, workspaceId, source) {
+  if (!source) return null;
+
+  return {
+    id: documentId,
+    workspaceId,
+    title: source.title ?? '',
+    content: source.content ?? '',
+    currentVersion: source.currentVersion ?? 1,
+    updatedAt: source.updatedAt,
+  };
+}
+
+function pickPreferredDocument(localDoc, serverDoc) {
+  if (!localDoc) return serverDoc;
+  if (!serverDoc) return localDoc;
+
+  const localTime = new Date(localDoc.updatedAt || 0).getTime();
+  const serverTime = new Date(serverDoc.updatedAt || 0).getTime();
+
+  if (localTime >= serverTime) {
+    return { ...serverDoc, ...localDoc };
+  }
+
+  return serverDoc;
+}
 
 export default function DocumentShell({ documentId, workspaceId, initialDocument, userRole }) {
   const { data: session } = useSession();
   const readOnly = userRole === 'VIEWER';
+  const [isDocumentReady, setIsDocumentReady] = useState(false);
 
   const title = useDocumentStore((s) => s.title);
   const content = useDocumentStore((s) => s.content);
@@ -43,49 +76,64 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
           markClean();
         },
       }),
-    [documentId, setStatus, setPendingCount, setTitle, setContent, markClean]
+    [documentId, setStatus, setPendingCount, setTitle, setContent, markClean],
   );
 
   usePresence(documentId, session?.user);
 
-  useEffect(() => {
-    async function loadLocal() {
-      let doc = await getDocumentLocal(documentId);
-      if (!doc && initialDocument) {
-        doc = {
-          id: documentId,
-          workspaceId,
-          title: initialDocument.title,
-          content: initialDocument.content,
-          currentVersion: initialDocument.currentVersion,
-          updatedAt: initialDocument.updatedAt,
-        };
-        await saveDocumentLocal(doc);
-      }
-      if (doc) setActiveDocument(doc);
-      else if (initialDocument) setActiveDocument(initialDocument);
+  useLayoutEffect(() => {
+    const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
+    if (serverDoc) {
+      setActiveDocument(serverDoc);
     }
-    loadLocal();
+  }, [documentId, workspaceId, initialDocument, setActiveDocument]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDocument() {
+      setIsDocumentReady(false);
+
+      const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
+      const localDoc = await getDocumentLocal(documentId);
+      const resolvedDoc = pickPreferredDocument(localDoc, serverDoc);
+
+      if (!active) return;
+
+      if (resolvedDoc) {
+        setActiveDocument(resolvedDoc);
+        await saveDocumentLocal(resolvedDoc);
+      }
+
+      setIsDocumentReady(true);
+    }
+
+    loadDocument();
     syncWorker.init();
-    return () => syncWorker.destroy();
+
+    return () => {
+      active = false;
+      syncWorker.destroy();
+      setActiveDocument(null);
+    };
   }, [documentId, workspaceId, initialDocument, setActiveDocument, syncWorker]);
 
   const handleContentChange = useCallback(
     (html) => {
-      if (readOnly) return;
+      if (readOnly || !isDocumentReady) return;
       setContent(html);
       syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
     },
-    [readOnly, setContent, syncWorker]
+    [readOnly, isDocumentReady, setContent, syncWorker],
   );
 
   const handleTitleChange = useCallback(
     (e) => {
-      if (readOnly) return;
+      if (readOnly || !isDocumentReady) return;
       setTitle(e.target.value);
       syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
     },
-    [readOnly, setTitle, syncWorker]
+    [readOnly, isDocumentReady, setTitle, syncWorker],
   );
 
   const handleSave = useCallback(async () => {
@@ -121,9 +169,10 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const handleRestore = useCallback(
     async (version) => {
-      const res = await fetch(`/api/documents/${documentId}/versions/${version._id || version.version}/restore`, {
-        method: 'POST',
-      });
+      const res = await fetch(
+        `/api/documents/${documentId}/versions/${version._id || version.version}/restore`,
+        { method: 'POST' },
+      );
       if (res.ok) {
         const data = await res.json();
         setTitle(data.document.title);
@@ -135,11 +184,11 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
         });
       }
     },
-    [documentId, setTitle, setContent, syncWorker]
+    [documentId, setTitle, setContent, syncWorker],
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--gdocs-canvas-bg)]">
+    <div className="flex h-dvh min-h-screen flex-col bg-[var(--gdocs-canvas-bg)]">
       <DocumentHeader
         title={title}
         onTitleChange={handleTitleChange}
@@ -150,9 +199,20 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
         workspaceId={workspaceId}
       />
 
-      <div className="gdocs-page-canvas flex-1">
-        <div className="gdocs-page">
-          <QuillEditor content={content} onChange={handleContentChange} readOnly={readOnly} />
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--gdocs-canvas-bg)] px-4 py-6">
+        <div className="document-editor-page mx-auto w-full max-w-[210mm] min-h-[297mm] bg-white px-10 py-12 sm:px-16 sm:py-16">
+          {isDocumentReady ? (
+            <QuillEditor
+              key={documentId}
+              content={content}
+              onChange={handleContentChange}
+              readOnly={readOnly}
+            />
+          ) : (
+            <div className="flex min-h-[240mm] items-center justify-center">
+              <Spin />
+            </div>
+          )}
         </div>
       </div>
 

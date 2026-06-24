@@ -7,19 +7,24 @@
 
 .quill-editor .ql-toolbar {
   border: none !important;
-  border-bottom: 1px solid var(--editor-toolbar-border) !important;
-  padding: var(--space-2) 0 !important;
+  padding: 0 0 var(--space-3) !important;
+  margin-bottom: var(--space-4);
   background: var(--editor-bg);
 }
 
 .quill-editor .ql-editor {
-  min-height: 400px;
-  padding: var(--space-4) 0;
+  padding: 0;
   line-height: var(--line-height-relaxed);
   color: var(--editor-text);
+  font-size: 11pt;
+}
+
+.document-editor-page .quill-editor .ql-editor {
+  min-height: calc(297mm - 9rem);
 }
 
 .quill-editor .ql-editor.ql-blank::before {
   color: var(--editor-placeholder);
   font-style: normal;
+  left: 0;
 }

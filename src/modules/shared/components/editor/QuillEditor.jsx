@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, memo } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { sanitizeHtml } from '@shared/lib/validations/schemas';
 
 let QuillConstructor = null;
@@ -17,10 +17,16 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
   const containerRef = useRef(null);
   const quillRef = useRef(null);
   const onChangeRef = useRef(onChange);
+  const contentRef = useRef(content);
+  const isApplyingContentRef = useRef(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   useEffect(() => {
     let mounted = true;
@@ -44,11 +50,15 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
         },
       });
 
-      if (content) {
-        quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(content));
+      const initialContent = contentRef.current;
+      if (initialContent) {
+        isApplyingContentRef.current = true;
+        quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(initialContent));
+        isApplyingContentRef.current = false;
       }
 
       quill.on('text-change', () => {
+        if (isApplyingContentRef.current) return;
         const html = quill.root.innerHTML;
         onChangeRef.current?.(html === '<p><br></p>' ? '' : html);
       });
@@ -58,25 +68,29 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
 
     return () => {
       mounted = false;
+      quillRef.current = null;
     };
   }, [placeholder, readOnly]);
 
   useEffect(() => {
     if (!quillRef.current) return;
+
     const current = quillRef.current.root.innerHTML;
     const next = content || '';
-    if (current !== next && sanitizeHtml(current) !== sanitizeHtml(next)) {
-      const selection = quillRef.current.getSelection();
-      quillRef.current.clipboard.dangerouslyPasteHTML(sanitizeHtml(next));
-      if (selection) quillRef.current.setSelection(selection);
-    }
+    if (current === next || sanitizeHtml(current) === sanitizeHtml(next)) return;
+
+    const selection = quillRef.current.getSelection();
+    isApplyingContentRef.current = true;
+    quillRef.current.clipboard.dangerouslyPasteHTML(sanitizeHtml(next));
+    isApplyingContentRef.current = false;
+    if (selection) quillRef.current.setSelection(selection);
   }, [content]);
 
   useEffect(() => {
     if (quillRef.current) quillRef.current.enable(!readOnly);
   }, [readOnly]);
 
-  return <div ref={containerRef} className="quill-editor flex-1 min-h-[400px]" />;
+  return <div ref={containerRef} className="quill-editor flex w-full flex-col" />;
 }
 
 export default memo(QuillEditor);
