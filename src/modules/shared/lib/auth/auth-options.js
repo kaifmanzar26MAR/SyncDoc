@@ -3,6 +3,7 @@ import { connectDB } from '@shared/lib/db/mongoose';
 import User from '@shared/data/models/User';
 import { verifyPassword, hashPassword } from '@shared/lib/auth/password';
 import { loginSchema } from '@shared/lib/validations/schemas';
+import { validateNewPassword } from '@shared/utils/password-strength';
 
 export const authOptions = {
   providers: [
@@ -25,7 +26,7 @@ export const authOptions = {
         if (!valid) return null;
 
         if (credentials.newPassword && user.mustResetPassword) {
-          if (credentials.newPassword.length < 8) return null;
+          if (!validateNewPassword(credentials.newPassword).isValid) return null;
           user.passwordHash = await hashPassword(credentials.newPassword);
           user.mustResetPassword = false;
           await user.save();

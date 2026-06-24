@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Form, Input, Button, Card, Typography, Steps, message } from 'antd';
+import { Form, Input, Button, Card, Typography, Steps, message, Alert, Result } from 'antd';
+import { MailOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { registerUser, verifyOtp } from '@auth-module/data/service/AuthApis';
@@ -36,7 +37,7 @@ export default function RegisterView() {
     try {
       await verifyOtp({ email, otp: values.otp });
       setStep(2);
-      message.success('Account verified! Check email for password.');
+      message.success('Registration complete');
     } catch (err) {
       message.error(err.message);
     } finally {
@@ -79,20 +80,39 @@ export default function RegisterView() {
         )}
 
         {step === 2 && (
-          <div className="text-center py-4">
-            <Typography.Title level={4}>You&apos;re all set!</Typography.Title>
-            <Typography.Paragraph>
-              A default password has been sent to your email. Use it to sign in and reset your password.
-            </Typography.Paragraph>
+          <div className="py-2">
+            <Result
+              status="success"
+              title="Registration successful"
+              subTitle="Your login credentials have been sent to your email."
+            />
+            <Alert
+              type="success"
+              showIcon
+              icon={<MailOutlined />}
+              message="Check your inbox"
+              description={
+                <>
+                  We sent your default password and account details to{' '}
+                  <Typography.Text strong>{email}</Typography.Text>. Sign in with that password, then you will be
+                  prompted to set a new secure password.
+                </>
+              }
+              className="mb-6"
+            />
             <Link href={loginHref}>
-              <Button type="primary" size="large">Go to Login</Button>
+              <Button type="primary" size="large" block>
+                Go to Login
+              </Button>
             </Link>
           </div>
         )}
 
-        <div className="text-center mt-4 text-sm">
-          Have an account? <Link href={loginHref} className="text-indigo-600">Sign in</Link>
-        </div>
+        {step < 2 && (
+          <div className="text-center mt-4 text-sm">
+            Have an account? <Link href={loginHref} className="text-indigo-600">Sign in</Link>
+          </div>
+        )}
       </Card>
     </div>
   );
