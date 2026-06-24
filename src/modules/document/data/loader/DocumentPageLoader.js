@@ -1,4 +1,4 @@
-import { getPageSession, requireSession } from '@shared/utils/session';
+import { getPageSession, requireSession, serializeSessionForProps } from '@shared/utils/session';
 import { getDocumentForPage } from '@shared/data/services/document.service';
 
 export async function loadDocumentPage(context) {
@@ -15,7 +15,7 @@ export async function loadDocumentPage(context) {
 
   return {
     props: {
-      session,
+      session: serializeSessionForProps(session),
       workspaceId,
       documentId,
       initialDocument: JSON.parse(JSON.stringify(result.document)),

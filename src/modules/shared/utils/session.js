@@ -28,3 +28,19 @@ export function requireSession(session, destination = '/login') {
   }
   return null;
 }
+
+/** Strip undefined values — required for getServerSideProps JSON serialization */
+export function serializeSessionForProps(session) {
+  if (!session?.user) return null;
+
+  return {
+    expires: session.expires ?? null,
+    user: {
+      id: session.user.id ?? null,
+      email: session.user.email ?? null,
+      name: session.user.name ?? null,
+      image: session.user.image ?? null,
+      mustResetPassword: session.user.mustResetPassword ?? false,
+    },
+  };
+}

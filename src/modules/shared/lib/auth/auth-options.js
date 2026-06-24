@@ -58,7 +58,8 @@ export const authOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
-        session.user.mustResetPassword = token.mustResetPassword;
+        session.user.mustResetPassword = token.mustResetPassword ?? false;
+        session.user.image = session.user.image ?? null;
       }
       return session;
     },
