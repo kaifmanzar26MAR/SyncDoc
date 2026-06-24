@@ -9,15 +9,53 @@ import {
   setSyncMetadata,
   getOrCreateClientId,
 } from '@shared/lib/db/dexie';
+import { formatApiError } from '@shared/utils/format-api-error';
+import { MAX_OPS_PER_BATCH } from '@shared/lib/validations/schemas';
 
 const DEBOUNCE_MS = 500;
+
+function compactPendingOperations(ops) {
+  if (!ops.length) return [];
+
+  const sorted = [...ops].sort((a, b) => a.logicalClock - b.logicalClock);
+  const preserved = sorted.filter(
+    (op) => op.operationType !== 'CONTENT_UPDATE' && op.operationType !== 'TITLE_UPDATE',
+  );
+
+  const lastContent = [...sorted].reverse().find((op) => op.operationType === 'CONTENT_UPDATE');
+  const lastTitle = [...sorted].reverse().find((op) => op.operationType === 'TITLE_UPDATE');
+
+  const merged = [...preserved];
+  if (lastTitle) merged.push(lastTitle);
+  if (lastContent) merged.push(lastContent);
+
+  return merged.sort((a, b) => a.logicalClock - b.logicalClock);
+}
+
+function mapOperationForSync(op) {
+  return {
+    clientId: op.clientId,
+    operationType: op.operationType,
+    payload: op.payload,
+    logicalClock: op.logicalClock,
+    idempotencyKey: op.idempotencyKey,
+  };
+}
 
 function isAbortError(err) {
   return err?.name === 'AbortError';
 }
 
 function isNetworkFetchError(err) {
-  return err instanceof TypeError && /fetch|network/i.test(err.message || '');
+  if (err instanceof TypeError && /fetch|network|failed to fetch/i.test(err.message || '')) {
+    return true;
+  }
+  return /ENOTFOUND|ECONNREFUSED|network|unavailable/i.test(err?.message || '');
+}
+
+function notifySyncError(callbacks, err, fallback) {
+  const message = formatApiError(err) || fallback;
+  callbacks.onSyncError?.(message);
 }
 
 export class SyncWorker {
@@ -106,6 +144,29 @@ export class SyncWorker {
     this.debounceTimer = setTimeout(() => this.push(), DEBOUNCE_MS);
   }
 
+  async postSyncBatch(operations, lastPullClock, signal) {
+    const res = await fetch(`/api/documents/${this.documentId}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      signal,
+      body: JSON.stringify({
+        operations: operations.map(mapOperationForSync),
+        lastPullClock,
+        sessionId: this.editSessionId || undefined,
+      }),
+    });
+
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      notifySyncError(this.callbacks, body.error || body, `Sync failed (${res.status})`);
+      return null;
+    }
+
+    return body;
+  }
+
   async push() {
     if (this.destroyed || !isOnline() || this.syncing) return;
 
@@ -126,43 +187,54 @@ export class SyncWorker {
         return;
       }
 
+      const toSend = compactPendingOperations(unsynced);
       const meta = await getSyncMetadata(this.documentId);
-      const res = await fetch(`/api/documents/${this.documentId}/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        signal,
-        body: JSON.stringify({
-          operations: unsynced.map((op) => ({
-            clientId: op.clientId,
-            operationType: op.operationType,
-            payload: op.payload,
-            logicalClock: op.logicalClock,
-            idempotencyKey: op.idempotencyKey,
-          })),
-          lastPullClock: meta?.lastPullClock || 0,
-          sessionId: this.editSessionId || undefined,
-        }),
-      });
+      let lastPullClock = meta?.lastPullClock || 0;
+      let lastResponse = null;
 
-      if (this.destroyed || signal.aborted) return;
+      for (let i = 0; i < toSend.length; i += MAX_OPS_PER_BATCH) {
+        if (this.destroyed || signal.aborted) return;
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || `Sync failed: ${res.status}`);
+        const batch = toSend.slice(i, i + MAX_OPS_PER_BATCH);
+        const response = await this.postSyncBatch(batch, lastPullClock, signal);
+        if (!response) {
+          if (!this.destroyed) this.callbacks.onStatusChange?.('error');
+          return;
+        }
+
+        lastResponse = response;
+        lastPullClock = response.lastPullClock ?? lastPullClock;
+
+        await setSyncMetadata(this.documentId, {
+          lastPullClock,
+          lastClock: response.lastClock || 0,
+          lastSyncedAt: new Date().toISOString(),
+        });
       }
 
-      const data = await res.json();
-      await this.handleSyncResponse(unsynced, data);
+      await this.handleSyncResponse(unsynced, lastResponse);
 
-      if (!this.destroyed) this.callbacks.onStatusChange?.('idle');
+      const remaining = (await getQueueForDocument(this.documentId)).filter(
+        (op) => !op.synced && !this.syncedKeys.has(op.idempotencyKey),
+      );
+      if (remaining.length) {
+        this.scheduleSync();
+      } else if (!this.destroyed) {
+        this.callbacks.onStatusChange?.('idle');
+      }
     } catch (err) {
       if (this.destroyed || isAbortError(err)) return;
+
       if (isNetworkFetchError(err)) {
-        console.warn('[SyncWorker] push skipped — server unreachable');
+        notifySyncError(
+          this.callbacks,
+          err,
+          'Unable to reach the server. Changes saved locally.',
+        );
       } else {
-        console.error('[SyncWorker] push failed:', err);
+        notifySyncError(this.callbacks, err, 'Sync failed');
       }
+
       if (!this.destroyed) this.callbacks.onStatusChange?.('error');
     } finally {
       this.syncing = false;
@@ -232,10 +304,8 @@ export class SyncWorker {
 
       await this.handleSyncResponse([], data);
     } catch (err) {
-      if (this.destroyed || isAbortError(err)) return;
-      if (!isNetworkFetchError(err)) {
-        console.error('[SyncWorker] pull failed:', err);
-      }
+      if (this.destroyed || isAbortError(err) || isNetworkFetchError(err)) return;
+      notifySyncError(this.callbacks, err, 'Could not refresh document');
     }
   }
 

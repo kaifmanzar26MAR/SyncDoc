@@ -55,7 +55,13 @@ function pickPreferredDocument(localDoc, serverDoc) {
   return serverDoc;
 }
 
-export default function DocumentShell({ documentId, workspaceId, initialDocument, userRole }) {
+export default function DocumentShell({
+  documentId,
+  workspaceId,
+  initialDocument,
+  userRole,
+  pageLoadWarning,
+}) {
   const { data: session } = useSession();
   const readOnly = userRole === 'VIEWER';
   const [isDocumentReady, setIsDocumentReady] = useState(false);
@@ -81,12 +87,14 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const setStatus = useSyncStore((s) => s.setStatus);
   const setPendingCount = useSyncStore((s) => s.setPendingCount);
+  const lastSyncToastAt = useRef(0);
 
   const syncCallbacksRef = useRef({
     onStatusChange: () => {},
     onPendingChange: () => {},
     onNetworkChange: () => {},
     onDocumentMerged: () => {},
+    onSyncError: () => {},
   });
 
   syncCallbacksRef.current = {
@@ -98,6 +106,12 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       applyRemoteUpdate({ title: merged.title, content: merged.content });
       markClean();
     },
+    onSyncError: (text) => {
+      const now = Date.now();
+      if (!text || now - lastSyncToastAt.current < 4000) return;
+      lastSyncToastAt.current = now;
+      message.warning(text, 4);
+    },
   };
 
   const syncWorkerRef = useRef(null);
@@ -108,6 +122,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       onPendingChange: (...args) => syncCallbacksRef.current.onPendingChange(...args),
       onNetworkChange: (...args) => syncCallbacksRef.current.onNetworkChange(...args),
       onDocumentMerged: (...args) => syncCallbacksRef.current.onDocumentMerged(...args),
+      onSyncError: (...args) => syncCallbacksRef.current.onSyncError(...args),
     });
 
     syncWorkerRef.current = worker;
@@ -158,6 +173,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   });
 
   useLayoutEffect(() => {
+    if (!initialDocument) return;
     const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
     if (serverDoc) {
       setActiveDocument(serverDoc);
@@ -165,20 +181,30 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   }, [documentId, workspaceId, initialDocument, setActiveDocument]);
 
   useEffect(() => {
+    if (pageLoadWarning) {
+      message.info(pageLoadWarning, 5);
+    }
+  }, [pageLoadWarning]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadDocument() {
       setIsDocumentReady(false);
 
-      const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
+      const serverDoc = initialDocument
+        ? normalizeDocument(documentId, workspaceId, initialDocument)
+        : null;
       const localDoc = await getDocumentLocal(documentId);
-      const resolvedDoc = pickPreferredDocument(localDoc, serverDoc);
+      const resolvedDoc = serverDoc ? pickPreferredDocument(localDoc, serverDoc) : localDoc;
 
       if (!active) return;
 
       if (resolvedDoc) {
         setActiveDocument(resolvedDoc);
         await saveDocumentLocal(resolvedDoc);
+      } else if (!serverDoc) {
+        message.warning('No local copy found. Reconnect to load this document.', 5);
       }
 
       setIsDocumentReady(true);

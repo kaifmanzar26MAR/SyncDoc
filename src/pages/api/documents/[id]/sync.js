@@ -11,6 +11,7 @@ import {
 } from '@shared/lib/validations/schemas';
 import { rateLimit } from '@shared/lib/security/rate-limit';
 import { getClientIpFromReq, sendJson, methodNotAllowed } from '@shared/utils/api-response';
+import { formatApiError } from '@shared/utils/format-api-error';
 import { broadcastDocumentChange } from '@shared/lib/socket/broadcast';
 import { logDocumentChange } from '@document/data/service/edit-session.service';
 
@@ -27,6 +28,16 @@ function validateYjsUpdate(base64) {
   }
 }
 
+function validationErrorMessage(parsed) {
+  const flattened = parsed.error.flatten();
+  const fieldErrors = Object.values(flattened.fieldErrors || {}).flat();
+  const first = flattened.formErrors?.[0] || fieldErrors[0];
+  if (typeof first === 'string' && /too big/i.test(first)) {
+    return 'Sync batch is too large. Please try again.';
+  }
+  return first || 'Invalid sync payload';
+}
+
 function isValidObjectId(value) {
   return typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
 }
@@ -37,34 +48,41 @@ export default async function handler(req, res) {
   if (!session) return;
 
   if (req.method === 'GET') {
-    const authz = await authorizeDocument(session.user.id, id, 'read');
-    if (!authz.authorized) return sendJson(res, authz.status, { error: authz.error });
+    try {
+      const authz = await authorizeDocument(session.user.id, id, 'read');
+      if (!authz.authorized) return sendJson(res, authz.status, { error: authz.error });
 
-    const since = Number(req.query.since || 0);
-    await connectDB();
-    const remoteOperations = await SyncOperation.find({
-      documentId: id,
-      logicalClock: { $gt: since },
-    })
-      .sort({ logicalClock: 1 })
-      .limit(100)
-      .lean();
+      const since = Number(req.query.since || 0);
+      await connectDB();
+      const remoteOperations = await SyncOperation.find({
+        documentId: id,
+        logicalClock: { $gt: since },
+      })
+        .sort({ logicalClock: 1 })
+        .limit(100)
+        .lean();
 
-    const doc = await Document.findById(id).lean();
-    const lastPullClock = remoteOperations.length
-      ? remoteOperations[remoteOperations.length - 1].logicalClock
-      : since;
+      const doc = await Document.findById(id).lean();
+      if (!doc) return sendJson(res, 404, { error: 'Not found' });
 
-    return sendJson(res, 200, {
-      remoteOperations,
-      lastPullClock,
-      document: {
-        title: doc.title,
-        content: doc.content,
-        yjsState: doc.yjsState ? Buffer.from(doc.yjsState).toString('base64') : null,
-        currentVersion: doc.currentVersion,
-      },
-    });
+      const lastPullClock = remoteOperations.length
+        ? remoteOperations[remoteOperations.length - 1].logicalClock
+        : since;
+
+      return sendJson(res, 200, {
+        remoteOperations,
+        lastPullClock,
+        document: {
+          title: doc.title,
+          content: doc.content,
+          yjsState: doc.yjsState ? Buffer.from(doc.yjsState).toString('base64') : null,
+          currentVersion: doc.currentVersion,
+        },
+      });
+    } catch (err) {
+      console.error('[sync] GET error:', err);
+      return sendJson(res, 503, { error: 'Database unavailable' });
+    }
   }
 
   if (req.method === 'POST') {
@@ -83,7 +101,9 @@ export default async function handler(req, res) {
       }
 
       const parsed = syncBatchSchema.safeParse(req.body);
-      if (!parsed.success) return sendJson(res, 400, { error: parsed.error.flatten() });
+      if (!parsed.success) {
+        return sendJson(res, 400, { error: validationErrorMessage(parsed) });
+      }
 
       await connectDB();
       const doc = await Document.findById(id);
@@ -178,7 +198,9 @@ export default async function handler(req, res) {
       });
     } catch (err) {
       console.error('[sync] POST error:', err);
-      return sendJson(res, 500, { error: 'Sync failed' });
+      const errorMessage = formatApiError(err);
+      const status = /unavailable|ENOTFOUND|MongoServerSelection/i.test(errorMessage) ? 503 : 500;
+      return sendJson(res, status, { error: errorMessage || 'Sync failed' });
     }
   }
 
