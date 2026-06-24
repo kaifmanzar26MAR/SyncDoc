@@ -13,10 +13,12 @@ import {
   Spin,
   Collapse,
   Avatar,
+  message,
 } from 'antd';
 import { RollbackOutlined, DiffOutlined, UserOutlined } from '@ant-design/icons';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { getUserColorFromInitial } from '@shared/utils/user-color';
+import { formatSnapshotDate } from '@shared/utils/content-diff';
 
 const SNAPSHOT_TYPE_LABELS = {
   session_start: 'Session start',
@@ -84,15 +86,16 @@ function ChangeLogPanel({ documentId, sessionId }) {
   );
 }
 
-export default function VersionHistoryDrawer({ documentId, onRestore, onCompare }) {
+export default function VersionHistoryDrawer({ documentId, onRestore }) {
   const open = useDocumentStore((s) => s.versionDrawerOpen);
   const setOpen = useDocumentStore((s) => s.setVersionDrawerOpen);
+  const setCompareVersion = useDocumentStore((s) => s.setCompareVersion);
   const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [compareModal, setCompareModal] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
 
-  useEffect(() => {
-    if (!open || !documentId) return;
+  const loadVersions = () => {
+    if (!documentId) return;
     setLoading(true);
     fetch(`/api/documents/${documentId}/versions`)
       .then((r) => (r.ok ? r.json() : { versions: [] }))
@@ -100,72 +103,94 @@ export default function VersionHistoryDrawer({ documentId, onRestore, onCompare 
         setVersions((remote.versions || []).sort((a, b) => b.version - a.version));
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!open || !documentId) return;
+    loadVersions();
   }, [open, documentId]);
 
   const handleRestore = (version) => {
     Modal.confirm({
-      title: 'Restore this version?',
-      content: 'A new revision will be created. Current collaborative state is preserved in history.',
-      onOk: () => onRestore?.(version),
+      title: 'Restore this snapshot?',
+      content: 'The document will revert to this snapshot. A new restore entry will be added to history.',
+      okText: 'Restore',
+      onOk: async () => {
+        setRestoringId(version._id);
+        try {
+          await onRestore?.(version);
+          message.success('Snapshot restored');
+          loadVersions();
+        } catch (err) {
+          message.error(err.message || 'Restore failed');
+        } finally {
+          setRestoringId(null);
+        }
+      },
     });
   };
 
+  const handleCompare = (version) => {
+    setCompareVersion(version);
+    setOpen(false);
+  };
+
   return (
-    <>
-      <Drawer
-        title="Version History"
-        placement="right"
-        width={420}
-        open={open}
-        onClose={() => setOpen(false)}
-      >
-        {loading ? (
-          <Spin />
-        ) : versions.length === 0 ? (
-          <Empty description="No versions yet. Snapshots are created automatically when you edit." />
-        ) : (
-          <Timeline
-            items={versions.map((v) => ({
-              children: (
-                <div className="pb-2">
-                  <Typography.Text strong>v{v.version}</Typography.Text>
-                  {v.snapshotType && (
-                    <Tag color="blue" className="ml-2">
-                      {SNAPSHOT_TYPE_LABELS[v.snapshotType] || v.snapshotType}
-                    </Tag>
-                  )}
-                  {v.label && v.snapshotType !== 'session_auto' && (
-                    <Tag className="ml-1">{v.label}</Tag>
-                  )}
-                  {v.restoreOf && <Tag color="purple">Restored from v{v.restoreOf}</Tag>}
-                  {v.createdBy && (
-                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                      <Avatar
-                        size={16}
-                        style={{
-                          backgroundColor: getUserColorFromInitial(
-                            v.createdBy.name || v.createdBy.email,
-                          ),
-                        }}
-                      >
-                        {(v.createdBy.name || v.createdBy.email)?.[0]?.toUpperCase()}
-                      </Avatar>
-                      {v.createdBy.name || v.createdBy.email}
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-1">
-                    {new Date(v.createdAt).toLocaleString()}
+    <Drawer
+      title="Version History"
+      placement="right"
+      width={420}
+      open={open}
+      onClose={() => setOpen(false)}
+    >
+      {loading ? (
+        <Spin />
+      ) : versions.length === 0 ? (
+        <Empty description="No snapshots yet. Versions are created automatically when you edit." />
+      ) : (
+        <Timeline
+          items={versions.map((v) => ({
+            children: (
+              <div className="pb-2">
+                <Typography.Text strong>{formatSnapshotDate(v.createdAt)}</Typography.Text>
+                {v.snapshotType && (
+                  <Tag color="blue" className="ml-2">
+                    {SNAPSHOT_TYPE_LABELS[v.snapshotType] || v.snapshotType}
+                  </Tag>
+                )}
+                {v.restoreOf && (
+                  <Tag color="purple" className="ml-1">
+                    Restored from {formatSnapshotDate(
+                      versions.find((x) => x.version === v.restoreOf)?.createdAt,
+                    ) || `v${v.restoreOf}`}
+                  </Tag>
+                )}
+                {v.createdBy && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                    <Avatar
+                      size={16}
+                      style={{
+                        backgroundColor: getUserColorFromInitial(
+                          v.createdBy.name || v.createdBy.email,
+                        ),
+                      }}
+                    >
+                      {(v.createdBy.name || v.createdBy.email)?.[0]?.toUpperCase()}
+                    </Avatar>
+                    {v.createdBy.name || v.createdBy.email}
                   </div>
-                  {v.changeSummary?.byUser?.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {v.changeSummary.byUser.map((entry) => (
-                        <Tag key={entry.email} className="!text-[10px]">
-                          {entry.email}: {entry.count}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                  {v.sessionId && ['session_auto', 'session_end', 'session_start'].includes(v.snapshotType) && (
+                )}
+                {v.changeSummary?.byUser?.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {v.changeSummary.byUser.map((entry) => (
+                      <Tag key={entry.email} className="!text-[10px]">
+                        {entry.email}: {entry.count}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+                {v.sessionId &&
+                  ['session_auto', 'session_end', 'session_start'].includes(v.snapshotType) && (
                     <Collapse
                       ghost
                       size="small"
@@ -179,48 +204,24 @@ export default function VersionHistoryDrawer({ documentId, onRestore, onCompare 
                       ]}
                     />
                   )}
-                  <Space className="mt-2">
-                    <Button
-                      size="small"
-                      icon={<RollbackOutlined />}
-                      onClick={() => handleRestore(v)}
-                    >
-                      Restore
-                    </Button>
-                    <Button
-                      size="small"
-                      icon={<DiffOutlined />}
-                      onClick={() => {
-                        setCompareModal(v);
-                        onCompare?.(v);
-                      }}
-                    >
-                      Compare
-                    </Button>
-                  </Space>
-                </div>
-              ),
-            }))}
-          />
-        )}
-      </Drawer>
-
-      <Modal
-        title={`Version ${compareModal?.version} Preview`}
-        open={!!compareModal}
-        onCancel={() => setCompareModal(null)}
-        footer={null}
-        width={600}
-      >
-        {compareModal && (
-          <div
-            className="prose max-w-none p-4 border rounded"
-            dangerouslySetInnerHTML={{
-              __html: compareModal.snapshot?.content || compareModal.content || '',
-            }}
-          />
-        )}
-      </Modal>
-    </>
+                <Space className="mt-2">
+                  <Button
+                    size="small"
+                    icon={<RollbackOutlined />}
+                    loading={restoringId === v._id}
+                    onClick={() => handleRestore(v)}
+                  >
+                    Restore
+                  </Button>
+                  <Button size="small" icon={<DiffOutlined />} onClick={() => handleCompare(v)}>
+                    Compare
+                  </Button>
+                </Space>
+              </div>
+            ),
+          }))}
+        />
+      )}
+    </Drawer>
   );
 }

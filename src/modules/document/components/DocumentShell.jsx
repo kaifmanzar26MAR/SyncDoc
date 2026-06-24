@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useLayoutEffect, useState } from 'react';
+import { useEffect, useCallback, useMemo, useLayoutEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Spin } from 'antd';
+import { Button, Spin } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
 import { useSession } from 'next-auth/react';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { useSyncStore } from '@shared/stores/useSyncStore';
@@ -12,6 +13,11 @@ import { createSyncWorker } from '@shared/lib/sync-engine';
 import { saveDocumentLocal, getDocumentLocal } from '@shared/lib/db/dexie';
 import { useDocumentSocket } from '@document/hooks/useDocumentSocket';
 import { useEditSession } from '@document/hooks/useEditSession';
+import { buildCompareHtml, formatSnapshotDate } from '@shared/utils/content-diff';
+
+const CompareEditorView = dynamic(() => import('@shared/components/editor/CompareEditorView'), {
+  ssr: false,
+});
 
 const QuillEditor = dynamic(() => import('@shared/components/editor/QuillEditor'), {
   ssr: false,
@@ -61,6 +67,16 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const setContent = useDocumentStore((s) => s.setContent);
   const applyRemoteUpdate = useDocumentStore((s) => s.applyRemoteUpdate);
   const markClean = useDocumentStore((s) => s.markClean);
+  const compareVersion = useDocumentStore((s) => s.compareVersion);
+  const clearCompare = useDocumentStore((s) => s.clearCompare);
+  const compareActiveRef = useRef(false);
+
+  const [compareChangeLogs, setCompareChangeLogs] = useState([]);
+  const [compareLogsLoading, setCompareLogsLoading] = useState(false);
+
+  useEffect(() => {
+    compareActiveRef.current = Boolean(compareVersion);
+  }, [compareVersion]);
 
   const setStatus = useSyncStore((s) => s.setStatus);
   const setPendingCount = useSyncStore((s) => s.setPendingCount);
@@ -72,6 +88,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
         onPendingChange: setPendingCount,
         onNetworkChange: (status) => useSyncStore.getState().setNetworkStatus(status),
         onDocumentMerged: (merged) => {
+          if (compareActiveRef.current) return;
           applyRemoteUpdate({ title: merged.title, content: merged.content });
           markClean();
         },
@@ -87,6 +104,8 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const handleRemoteChange = useCallback(
     async (payload) => {
+      if (compareActiveRef.current) return;
+
       const patch = {};
       if (payload.title !== undefined) patch.title = payload.title;
       if (payload.content !== undefined) patch.content = payload.content;
@@ -150,9 +169,54 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     };
   }, [documentId, workspaceId, initialDocument, setActiveDocument, syncWorker]);
 
+  useEffect(() => {
+    if (!compareVersion) {
+      setCompareChangeLogs([]);
+      setCompareLogsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setCompareLogsLoading(true);
+
+    if (!compareVersion.sessionId) {
+      setCompareChangeLogs([]);
+      setCompareLogsLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    fetch(`/api/documents/${documentId}/edit-session/${compareVersion.sessionId}/changes`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active) setCompareChangeLogs(data?.logs || []);
+      })
+      .catch(() => {
+        if (active) setCompareChangeLogs([]);
+      })
+      .finally(() => {
+        if (active) setCompareLogsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [compareVersion, documentId]);
+
+  const compareHtml = useMemo(() => {
+    if (!compareVersion) return '';
+    return buildCompareHtml(
+      compareVersion.snapshot?.content || '',
+      content,
+      compareChangeLogs,
+      compareVersion.createdAt,
+    );
+  }, [compareVersion, content, compareChangeLogs]);
+
   const handleContentChange = useCallback(
     (html) => {
-      if (readOnly || !isDocumentReady) return;
+      if (readOnly || !isDocumentReady || compareActiveRef.current) return;
       setContent(html);
       syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
       emitContentChange(html);
@@ -185,23 +249,50 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
 
   const handleRestore = useCallback(
     async (version) => {
-      const res = await fetch(
-        `/api/documents/${documentId}/versions/${version._id || version.version}/restore`,
-        { method: 'POST' },
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setTitle(data.document.title);
-        setContent(data.document.content);
-        syncWorker.recordEdit('RESTORE', {
-          title: data.document.title,
-          content: data.document.content,
-          restoreOf: version.version,
-        });
-        onEditActivity();
+      if (!version?._id) {
+        throw new Error('Invalid snapshot');
       }
+
+      const res = await fetch(`/api/documents/${documentId}/versions/${version._id}/restore`, {
+        method: 'POST',
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Restore failed');
+      }
+
+      setTitle(data.document.title);
+      setContent(data.document.content);
+      clearCompare();
+
+      await saveDocumentLocal({
+        id: documentId,
+        workspaceId,
+        title: data.document.title,
+        content: data.document.content,
+        currentVersion: data.document.currentVersion,
+        updatedAt: new Date().toISOString(),
+      });
+
+      markClean();
+      syncWorker.recordEdit('RESTORE', {
+        title: data.document.title,
+        content: data.document.content,
+        restoreOf: version.version,
+      });
+      onEditActivity();
     },
-    [documentId, setTitle, setContent, syncWorker, onEditActivity],
+    [
+      documentId,
+      workspaceId,
+      setTitle,
+      setContent,
+      syncWorker,
+      onEditActivity,
+      markClean,
+      clearCompare,
+    ],
   );
 
   return (
@@ -216,8 +307,32 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--gdocs-canvas-bg)] px-4 py-6">
+        {compareVersion && (
+          <div className="document-compare-banner mx-auto mb-4 max-w-[210mm] rounded-md">
+            <span>
+              Comparing <strong>{formatSnapshotDate(compareVersion.createdAt)}</strong> with current
+              document
+              <span className="ml-2 text-xs opacity-75">
+                <span className="inline-block h-2 w-2 rounded-sm bg-[#34a853] align-middle" /> added
+                <span className="ml-2 inline-block h-2 w-2 rounded-sm bg-[#ea4335] align-middle" /> removed
+              </span>
+            </span>
+            <Button size="small" icon={<CloseOutlined />} onClick={clearCompare}>
+              Exit compare
+            </Button>
+          </div>
+        )}
+
         <div className="document-editor-page mx-auto w-full max-w-[210mm] min-h-[297mm] bg-white px-10 py-12 sm:px-16 sm:py-16">
-          {isDocumentReady ? (
+          {compareVersion ? (
+            compareLogsLoading ? (
+              <div className="flex min-h-[240mm] items-center justify-center">
+                <Spin />
+              </div>
+            ) : (
+              <CompareEditorView key={compareVersion._id} html={compareHtml} />
+            )
+          ) : isDocumentReady ? (
             <QuillEditor
               key={documentId}
               content={content}

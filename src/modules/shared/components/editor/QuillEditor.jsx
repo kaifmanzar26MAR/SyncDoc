@@ -17,6 +17,16 @@ async function loadQuill() {
   return Quill;
 }
 
+function destroyQuillInstance(quill, container) {
+  if (quill) {
+    quill.off('text-change');
+    quill.disable();
+  }
+  if (container) {
+    container.innerHTML = '';
+  }
+}
+
 function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start writing...' }) {
   const containerRef = useRef(null);
   const quillRef = useRef(null);
@@ -34,6 +44,7 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
 
   useEffect(() => {
     let mounted = true;
+    const container = containerRef.current;
 
     loadQuill().then((Quill) => {
       if (!mounted || !containerRef.current || quillRef.current) return;
@@ -61,20 +72,24 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
         isApplyingContentRef.current = false;
       }
 
-      quill.on('text-change', () => {
+      const handleTextChange = () => {
         if (isApplyingContentRef.current) return;
         const html = normalizeEditorHtml(quill.root.innerHTML);
         onChangeRef.current?.(html);
-      });
+      };
 
+      quill.on('text-change', handleTextChange);
       quillRef.current = quill;
     });
 
     return () => {
       mounted = false;
+      destroyQuillInstance(quillRef.current, container);
       quillRef.current = null;
     };
-  }, [placeholder, readOnly]);
+    // Intentionally mount Quill only once; readOnly/content are updated via separate effects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!quillRef.current) return;
@@ -89,7 +104,11 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
     if (quillRef.current) quillRef.current.enable(!readOnly);
   }, [readOnly]);
 
-  return <div ref={containerRef} className="quill-editor flex w-full flex-col" />;
+  return (
+    <div className="quill-editor flex w-full flex-col">
+      <div ref={containerRef} />
+    </div>
+  );
 }
 
 export default memo(QuillEditor);

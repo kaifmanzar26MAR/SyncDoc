@@ -92,3 +92,54 @@
   font-style: normal;
   left: 0;
 }
+
+/* Compare / diff highlights */
+.quill-editor .ql-editor .diff-added {
+  background: rgba(52, 168, 83, 0.22);
+  border-bottom: 2px solid #34a853;
+  padding: 0 1px;
+}
+
+.quill-editor .ql-editor .diff-removed {
+  background: rgba(234, 67, 53, 0.15);
+  text-decoration: line-through;
+  color: #c5221f;
+  padding: 0 1px;
+}
+
+.quill-editor .ql-editor .diff-user-tag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 1;
+  color: #5f6368;
+  font-style: italic;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.quill-editor .ql-editor .diff-block-added,
+.quill-editor .ql-editor .diff-block-modified {
+  border-left: 3px solid #34a853;
+  padding-left: 8px;
+  margin: 0.25em 0;
+}
+
+.quill-editor .ql-editor .diff-block-removed {
+  border-left: 3px solid #ea4335;
+  padding-left: 8px;
+  margin: 0.25em 0;
+  opacity: 0.85;
+}
+
+.document-compare-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #e8f0fe;
+  border-bottom: 1px solid #d2e3fc;
+  color: #1967d2;
+  font-size: 13px;
+}

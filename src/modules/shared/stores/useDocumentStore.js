@@ -6,6 +6,7 @@ export const useDocumentStore = create((set, get) => ({
   content: '',
   isDirty: false,
   versionDrawerOpen: false,
+  compareVersion: null,
 
   setActiveDocument: (doc) =>
     set({
@@ -26,6 +27,8 @@ export const useDocumentStore = create((set, get) => ({
 
   toggleVersionDrawer: () => set((s) => ({ versionDrawerOpen: !s.versionDrawerOpen })),
   setVersionDrawerOpen: (open) => set({ versionDrawerOpen: open }),
+  setCompareVersion: (compareVersion) => set({ compareVersion }),
+  clearCompare: () => set({ compareVersion: null }),
 
   getSnapshot: () => {
     const { title, content } = get();
