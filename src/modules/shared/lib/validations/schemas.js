@@ -72,6 +72,7 @@ export function sanitizeHtml(html) {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
     .replace(/javascript:/gi, '');
 }
 

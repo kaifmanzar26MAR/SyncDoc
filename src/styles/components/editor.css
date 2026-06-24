@@ -19,6 +19,70 @@
   font-size: 11pt;
 }
 
+/* Rich text — restore formatting Tailwind preflight may reset */
+.quill-editor .ql-editor strong,
+.quill-editor .ql-editor b {
+  font-weight: 700;
+}
+
+.quill-editor .ql-editor em,
+.quill-editor .ql-editor i {
+  font-style: italic;
+}
+
+.quill-editor .ql-editor u {
+  text-decoration: underline;
+}
+
+.quill-editor .ql-editor s,
+.quill-editor .ql-editor strike {
+  text-decoration: line-through;
+}
+
+.quill-editor .ql-editor h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.67em 0;
+}
+
+.quill-editor .ql-editor h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 0.75em 0;
+}
+
+.quill-editor .ql-editor h3 {
+  font-size: 1.17em;
+  font-weight: 700;
+  margin: 0.83em 0;
+}
+
+.quill-editor .ql-editor blockquote {
+  border-left: 4px solid var(--preset-border-default, #dadce0);
+  margin: 0.5em 0;
+  padding-left: 1em;
+  color: var(--preset-text-secondary, #5f6368);
+}
+
+.quill-editor .ql-editor ol,
+.quill-editor .ql-editor ul {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.quill-editor .ql-editor pre.ql-syntax {
+  background: var(--preset-bg-muted, #f1f3f4);
+  color: var(--preset-text-primary, #202124);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+
+.quill-editor .ql-editor a {
+  color: var(--gdocs-primary, #1a73e8);
+  text-decoration: underline;
+}
+
 .document-editor-page .quill-editor .ql-editor {
   min-height: calc(297mm - 9rem);
 }

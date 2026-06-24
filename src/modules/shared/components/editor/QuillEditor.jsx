@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, memo } from 'react';
-import { sanitizeHtml } from '@shared/lib/validations/schemas';
+import {
+  applyEditorHtml,
+  isSameEditorContent,
+  normalizeEditorHtml,
+} from '@shared/components/editor/quill-content';
 
 let QuillConstructor = null;
 
@@ -53,14 +57,14 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
       const initialContent = contentRef.current;
       if (initialContent) {
         isApplyingContentRef.current = true;
-        quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(initialContent));
+        applyEditorHtml(quill, initialContent, 'silent');
         isApplyingContentRef.current = false;
       }
 
       quill.on('text-change', () => {
         if (isApplyingContentRef.current) return;
-        const html = quill.root.innerHTML;
-        onChangeRef.current?.(html === '<p><br></p>' ? '' : html);
+        const html = normalizeEditorHtml(quill.root.innerHTML);
+        onChangeRef.current?.(html);
       });
 
       quillRef.current = quill;
@@ -74,16 +78,11 @@ function QuillEditor({ content, onChange, readOnly = false, placeholder = 'Start
 
   useEffect(() => {
     if (!quillRef.current) return;
+    if (isSameEditorContent(quillRef.current, content)) return;
 
-    const current = quillRef.current.root.innerHTML;
-    const next = content || '';
-    if (current === next || sanitizeHtml(current) === sanitizeHtml(next)) return;
-
-    const selection = quillRef.current.getSelection();
     isApplyingContentRef.current = true;
-    quillRef.current.clipboard.dangerouslyPasteHTML(sanitizeHtml(next));
+    applyEditorHtml(quillRef.current, content, 'silent');
     isApplyingContentRef.current = false;
-    if (selection) quillRef.current.setSelection(selection);
   }, [content]);
 
   useEffect(() => {
