@@ -1,3 +1,9 @@
+export async function fetchAllDocuments(filter = 'all') {
+  const res = await fetch(`/api/documents?filter=${filter}`);
+  if (!res.ok) throw new Error('Failed to fetch documents');
+  return res.json();
+}
+
 export async function fetchWorkspaces() {
   const res = await fetch('/api/workspaces');
   if (!res.ok) throw new Error('Failed to fetch workspaces');

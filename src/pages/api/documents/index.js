@@ -14,16 +14,27 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const workspaceId = req.query.workspaceId;
-    if (!workspaceId) return sendJson(res, 400, { error: 'workspaceId required' });
+    const filter = req.query.filter || 'all';
 
-    const access = await getWorkspaceAccess(workspaceId, session.user.id);
-    if (!access) return sendJson(res, 404, { error: 'Workspace not found' });
+    if (workspaceId) {
+      const access = await getWorkspaceAccess(workspaceId, session.user.id);
+      if (!access) return sendJson(res, 404, { error: 'Workspace not found' });
 
-    await connectDB();
-    const docs = await Document.find({ workspaceId }).sort({ updatedAt: -1 }).limit(50).lean();
-    return sendJson(res, 200, {
-      documents: docs.map((d) => ({ ...d, _id: d._id.toString() })),
-    });
+      await connectDB();
+      const docs = await Document.find({ workspaceId }).sort({ updatedAt: -1 }).limit(50).lean();
+      return sendJson(res, 200, {
+        documents: docs.map((d) => ({
+          ...d,
+          _id: d._id.toString(),
+          workspaceId: d.workspaceId.toString(),
+          isOwned: true,
+        })),
+      });
+    }
+
+    const { listDocumentsForUser } = await import('@shared/data/services/document-list.service');
+    const documents = await listDocumentsForUser(session.user.id, filter);
+    return sendJson(res, 200, { documents });
   }
 
   if (req.method === 'POST') {

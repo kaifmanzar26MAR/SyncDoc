@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Layout, Menu, Dropdown, Avatar, Typography, Button, Input, List, Spin } from 'antd';
+import { useEffect } from 'react';
+import { Dropdown, Avatar, Typography, Button, Menu } from 'antd';
 import {
   FileTextOutlined,
-  FolderOutlined,
-  PlusOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
   UserOutlined,
   HomeOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -19,7 +18,11 @@ import { useAppStore } from '@shared/stores/useAppStore';
 import SyncStatusIndicator from '@shared/components/sync/SyncStatusIndicator';
 import NetworkStatusBadge from '@shared/components/sync/NetworkStatusBadge';
 
-const { Sider, Header, Content } = Layout;
+function getSelectedNavKey(pathname) {
+  if (pathname.startsWith('/dashboard/documents')) return 'documents';
+  if (pathname.startsWith('/dashboard')) return 'dashboard';
+  return 'dashboard';
+}
 
 export default function DashboardShell({ children, initialWorkspaces = [] }) {
   const { data: session } = useSession();
@@ -30,41 +33,11 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
   const setWorkspace = useAppStore((s) => s.setWorkspace);
   const currentWorkspaceId = useAppStore((s) => s.currentWorkspaceId);
 
-  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [newDocTitle, setNewDocTitle] = useState('');
-
   useEffect(() => {
     if (initialWorkspaces.length && !currentWorkspaceId) {
       setWorkspace(initialWorkspaces[0]._id);
     }
   }, [initialWorkspaces, currentWorkspaceId, setWorkspace]);
-
-  useEffect(() => {
-    if (!currentWorkspaceId) return;
-    setLoading(true);
-    fetch(`/api/documents?workspaceId=${currentWorkspaceId}`)
-      .then((r) => r.json())
-      .then((data) => setDocuments(data.documents || []))
-      .catch(() => setDocuments([]))
-      .finally(() => setLoading(false));
-  }, [currentWorkspaceId]);
-
-  const createDocument = async () => {
-    if (!currentWorkspaceId) return;
-    const title = newDocTitle.trim() || 'Untitled';
-    const res = await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, workspaceId: currentWorkspaceId }),
-    });
-    if (res.ok) {
-      const doc = await res.json();
-      setNewDocTitle('');
-      router.push(`/workspace/${currentWorkspaceId}/document/${doc._id}`);
-    }
-  };
 
   const userMenu = {
     items: [
@@ -77,100 +50,64 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
     },
   };
 
-  const sidebarMenu = [
+  const navItems = [
     {
       key: 'dashboard',
       icon: <HomeOutlined />,
       label: <Link href="/dashboard">Dashboard</Link>,
     },
     {
-      key: 'workspaces',
-      icon: <FolderOutlined />,
-      label: 'Workspaces',
-      children: workspaces.map((ws) => ({
-        key: ws._id,
-        label: ws.name,
-        onClick: () => setWorkspace(ws._id),
-      })),
+      key: 'documents',
+      icon: <FolderOpenOutlined />,
+      label: <Link href="/dashboard/documents">Documents</Link>,
     },
   ];
 
+  const selectedKey = getSelectedNavKey(pathname);
+
   return (
-    <Layout className="min-h-screen">
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={toggleSidebar}
-        trigger={null}
-        width={260}
-        className="syncdoc-sidebar !border-r"
-      >
-        <div
-          className="flex items-center gap-2 px-4 h-16 border-b"
-          style={{ borderColor: 'var(--sidebar-border)' }}
-        >
-          <FileTextOutlined className="syncdoc-brand text-xl" />
-          {!collapsed && (
-            <Typography.Title level={4} className="!mb-0 syncdoc-brand">
-              SyncDoc
-            </Typography.Title>
-          )}
-        </div>
-        <Menu mode="inline" items={sidebarMenu} selectedKeys={[pathname.includes('dashboard') ? 'dashboard' : currentWorkspaceId]} className="border-none" />
-        {!collapsed && currentWorkspaceId && (
-          <div className="px-3 mt-4">
-            <Typography.Text type="secondary" className="text-xs uppercase">Documents</Typography.Text>
-            <div className="flex gap-1 mt-2">
-              <Input
-                size="small"
-                placeholder="New doc title"
-                value={newDocTitle}
-                onChange={(e) => setNewDocTitle(e.target.value)}
-                onPressEnter={createDocument}
-              />
-              <Button size="small" type="primary" icon={<PlusOutlined />} onClick={createDocument} />
-            </div>
-            {loading ? (
-              <Spin className="mt-4" />
-            ) : (
-              <List
-                size="small"
-                className="mt-2"
-                dataSource={documents}
-                locale={{ emptyText: 'No documents' }}
-                renderItem={(doc) => (
-                  <List.Item
-                    className="!px-2 !py-1 cursor-pointer rounded"
-                    style={{ transition: 'background var(--duration-fast)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-item-bg-hover)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <Link href={`/workspace/${currentWorkspaceId}/document/${doc._id}`} className="text-sm truncate">
-                      {doc.title}
-                    </Link>
-                  </List.Item>
-                )}
-              />
+    <div className="dashboard-root">
+      <div className="dashboard-frame">
+        <aside className={`dashboard-sider ${collapsed ? 'dashboard-sider--collapsed' : ''}`}>
+          <div className="dashboard-sider-brand">
+            <FileTextOutlined className="dashboard-sider-brand-icon" />
+            {!collapsed && (
+              <Typography.Title level={4} className="dashboard-sider-brand-text">
+                SyncDoc
+              </Typography.Title>
             )}
           </div>
-        )}
-      </Sider>
-      <Layout>
-        <Header className="syncdoc-header !px-4 flex items-center justify-between !border-b">
-          <Button type="text" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={toggleSidebar} />
-          <div className="flex items-center gap-4">
-            <NetworkStatusBadge />
-            <SyncStatusIndicator />
-            <Dropdown menu={userMenu} placement="bottomRight">
-              <div className="flex items-center gap-2 cursor-pointer">
-                <Avatar icon={<UserOutlined />} />
-                <span className="hidden sm:inline text-sm">{session?.user?.name}</span>
-              </div>
-            </Dropdown>
-          </div>
-        </Header>
-        <Content className="syncdoc-content p-6">{children}</Content>
-      </Layout>
-    </Layout>
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={navItems}
+            className="dashboard-nav-menu"
+          />
+        </aside>
+
+        <div className="dashboard-main">
+          <header className="dashboard-topbar">
+            <Button
+              type="text"
+              className="dashboard-menu-toggle"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={toggleSidebar}
+            />
+            <div className="dashboard-topbar-actions">
+              <NetworkStatusBadge />
+              <SyncStatusIndicator />
+              <Dropdown menu={userMenu} placement="bottomRight">
+                <div className="dashboard-user-chip">
+                  <Avatar size="small" icon={<UserOutlined />} className="dashboard-avatar" />
+                  <span className="dashboard-user-name">{session?.user?.name}</span>
+                </div>
+              </Dropdown>
+            </div>
+          </header>
+
+          <main className="dashboard-content-panel">{children}</main>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 @import './components/editor.css';
 @import './components/layout.css';
 @import './components/gdocs.css';
+@import './components/dashboard-shell.css';
 
 @theme inline {
   --color-background: var(--app-bg);
@@ -25,6 +26,13 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#__next {
+  height: 100%;
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--app-bg);
@@ -34,6 +42,7 @@ body {
   line-height: var(--line-height-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
 a {

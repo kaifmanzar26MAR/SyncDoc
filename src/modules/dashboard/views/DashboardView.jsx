@@ -2,6 +2,7 @@
 
 import { Card, Typography, Row, Col, Statistic, Button, Empty } from 'antd';
 import { FileTextOutlined, CloudSyncOutlined, TeamOutlined, PlusOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import { useAppStore } from '@shared/stores/useAppStore';
 import { useRouter } from 'next/router';
 import { useSyncStore } from '@shared/stores/useSyncStore';
@@ -50,8 +51,11 @@ export default function DashboardView({ workspaces = [] }) {
           </Empty>
         ) : (
           <Typography.Paragraph>
-            Select a document from the sidebar or create a new one to start editing.
-            SyncDoc works fully offline — your browser is the source of truth.
+            Browse all your documents from the{' '}
+            <Link href="/dashboard/documents" className="text-[var(--gdocs-primary)]">
+              Documents
+            </Link>{' '}
+            page — filter by owned or shared. SyncDoc works fully offline.
           </Typography.Paragraph>
         )}
       </Card>
