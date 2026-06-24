@@ -1,48 +1,102 @@
 import { connectDB } from '@shared/lib/db/mongoose';
 import { Document, DocumentMember, Workspace } from '@shared/data/models';
 
-export async function listDocumentsForUser(userId, filter = 'all') {
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function enrichDocument(doc, userId, ownedWorkspaceIdSet) {
+  const isOwned =
+    doc.createdBy?.toString() === userId.toString() ||
+    ownedWorkspaceIdSet.has(doc.workspaceId?.toString());
+
+  return {
+    ...doc,
+    _id: doc._id.toString(),
+    workspaceId: doc.workspaceId.toString(),
+    createdBy: doc.createdBy?.toString(),
+    isOwned,
+  };
+}
+
+function buildAccessQuery(userId, ownedWorkspaceIds, memberDocIds) {
+  const clauses = [
+    { createdBy: userId },
+    { workspaceId: { $in: ownedWorkspaceIds } },
+  ];
+
+  if (memberDocIds.length) {
+    clauses.push({ _id: { $in: memberDocIds } });
+  }
+
+  return { $or: clauses };
+}
+
+function buildFilterQuery(filter, userId, ownedWorkspaceIds, memberDocIds) {
+  const accessQuery = buildAccessQuery(userId, ownedWorkspaceIds, memberDocIds);
+
+  if (filter === 'owned') {
+    return {
+      $or: [{ createdBy: userId }, { workspaceId: { $in: ownedWorkspaceIds } }],
+    };
+  }
+
+  if (filter === 'shared') {
+    return {
+      $and: [
+        accessQuery,
+        { createdBy: { $ne: userId } },
+        { workspaceId: { $nin: ownedWorkspaceIds } },
+      ],
+    };
+  }
+
+  return accessQuery;
+}
+
+export async function listDocumentsForUser(userId, options = {}) {
+  const {
+    filter = 'all',
+    search = '',
+    page = 1,
+    pageSize = 12,
+  } = options;
+
   await connectDB();
 
   const ownedWorkspaces = await Workspace.find({ ownerId: userId }).select('_id').lean();
   const ownedWorkspaceIds = ownedWorkspaces.map((w) => w._id);
-
-  const memberships = await DocumentMember.find({ userId }).select('documentId role').lean();
-  const memberDocIds = memberships.map((m) => m.documentId);
-
-  const baseQuery = {
-    $or: [
-      { workspaceId: { $in: ownedWorkspaceIds } },
-      { _id: { $in: memberDocIds } },
-      { createdBy: userId },
-    ],
-  };
-
-  let docs = await Document.find(baseQuery)
-    .sort({ updatedAt: -1 })
-    .limit(100)
-    .lean();
-
   const ownedWorkspaceIdSet = new Set(ownedWorkspaceIds.map((id) => id.toString()));
 
-  const enriched = docs.map((doc) => {
-    const isOwned =
-      doc.createdBy?.toString() === userId.toString() ||
-      ownedWorkspaceIdSet.has(doc.workspaceId?.toString());
-    return {
-      ...doc,
-      _id: doc._id.toString(),
-      workspaceId: doc.workspaceId.toString(),
-      createdBy: doc.createdBy?.toString(),
-      isOwned,
-    };
-  });
+  const memberships = await DocumentMember.find({ userId }).select('documentId').lean();
+  const memberDocIds = memberships.map((m) => m.documentId);
 
-  if (filter === 'owned') {
-    return enriched.filter((d) => d.isOwned);
+  let query = buildFilterQuery(filter, userId, ownedWorkspaceIds, memberDocIds);
+
+  const trimmedSearch = search.trim();
+  if (trimmedSearch) {
+    const titleFilter = { title: { $regex: escapeRegex(trimmedSearch), $options: 'i' } };
+    query = { $and: [query, titleFilter] };
   }
-  if (filter === 'shared') {
-    return enriched.filter((d) => !d.isOwned);
-  }
-  return enriched;
+
+  const safePage = Math.max(1, Number(page) || 1);
+  const safePageSize = Math.min(50, Math.max(1, Number(pageSize) || 12));
+  const skip = (safePage - 1) * safePageSize;
+
+  const [docs, total] = await Promise.all([
+    Document.find(query).sort({ updatedAt: -1 }).skip(skip).limit(safePageSize).lean(),
+    Document.countDocuments(query),
+  ]);
+
+  const documents = docs.map((doc) => enrichDocument(doc, userId, ownedWorkspaceIdSet));
+
+  return {
+    documents,
+    pagination: {
+      page: safePage,
+      pageSize: safePageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / safePageSize)),
+    },
+  };
 }

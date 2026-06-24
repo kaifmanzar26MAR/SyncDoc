@@ -33,8 +33,17 @@ export default async function handler(req, res) {
     }
 
     const { listDocumentsForUser } = await import('@shared/data/services/document-list.service');
-    const documents = await listDocumentsForUser(session.user.id, filter);
-    return sendJson(res, 200, { documents });
+    const page = req.query.page;
+    const pageSize = req.query.pageSize;
+    const search = typeof req.query.search === 'string' ? req.query.search : '';
+
+    const result = await listDocumentsForUser(session.user.id, {
+      filter,
+      search,
+      page,
+      pageSize,
+    });
+    return sendJson(res, 200, result);
   }
 
   if (req.method === 'POST') {

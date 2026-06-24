@@ -1,5 +1,17 @@
-export async function fetchAllDocuments(filter = 'all') {
-  const res = await fetch(`/api/documents?filter=${filter}`);
+export async function fetchAllDocuments({
+  filter = 'all',
+  search = '',
+  page = 1,
+  pageSize = 12,
+} = {}) {
+  const params = new URLSearchParams({
+    filter,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (search) params.set('search', search);
+
+  const res = await fetch(`/api/documents?${params}`);
   if (!res.ok) throw new Error('Failed to fetch documents');
   return res.json();
 }

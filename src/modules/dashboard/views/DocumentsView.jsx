@@ -1,35 +1,29 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Typography,
-  Segmented,
-  Button,
-  Table,
-  Tag,
-  Modal,
-  Input,
-  Empty,
-  message,
-} from 'antd';
-import { PlusOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Typography, Modal, Input, message, Button } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { fetchAllDocuments, createDocument } from '@dashboard/data/service/DashboardApis';
 import { useAppStore } from '@shared/stores/useAppStore';
+import { useRegisterDashboardRefresh } from '@dashboard/components/DashboardShellContext';
+import DocumentsToolbar from '@dashboard/components/documents/DocumentsToolbar';
+import DocumentCards from '@dashboard/components/documents/DocumentCards';
 
-const FILTERS = [
-  { label: 'All', value: 'all' },
-  { label: 'Owned by me', value: 'owned' },
-  { label: 'Not owned by me', value: 'shared' },
-];
+const DEFAULT_PAGINATION = { page: 1, pageSize: 12, total: 0, totalPages: 1 };
 
 export default function DocumentsView({ workspaces = [] }) {
   const router = useRouter();
   const currentWorkspaceId = useAppStore((s) => s.currentWorkspaceId);
   const setWorkspace = useAppStore((s) => s.setWorkspace);
+
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [view, setView] = useState('grid');
+  const [page, setPage] = useState(1);
   const [documents, setDocuments] = useState([]);
+  const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -43,17 +37,39 @@ export default function DocumentsView({ workspaces = [] }) {
     }
   }, [workspaces, currentWorkspaceId, setWorkspace]);
 
-  const loadDocuments = useCallback(() => {
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
-    fetchAllDocuments(filter)
-      .then((data) => setDocuments(data.documents || []))
-      .catch(() => setDocuments([]))
-      .finally(() => setLoading(false));
-  }, [filter]);
+    try {
+      const data = await fetchAllDocuments({
+        filter,
+        search: debouncedSearch,
+        page,
+        pageSize: DEFAULT_PAGINATION.pageSize,
+      });
+      setDocuments(data.documents || []);
+      setPagination(data.pagination || DEFAULT_PAGINATION);
+    } catch {
+      setDocuments([]);
+      setPagination(DEFAULT_PAGINATION);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, debouncedSearch, page]);
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  useRegisterDashboardRefresh(loadDocuments);
 
   const handleCreate = async () => {
     if (!workspaceId) {
@@ -77,86 +93,46 @@ export default function DocumentsView({ workspaces = [] }) {
     }
   };
 
-  const columns = [
-    {
-      title: 'Title',
-      dataIndex: 'title',
-      key: 'title',
-      render: (title, record) => (
-        <Link
-          href={`/workspace/${record.workspaceId}/document/${record._id}`}
-          className="font-medium text-[var(--gdocs-primary)] hover:underline"
-        >
-          <FileTextOutlined className="mr-2" />
-          {title}
-        </Link>
-      ),
-    },
-    {
-      title: 'Ownership',
-      key: 'ownership',
-      width: 140,
-      render: (_, record) => (
-        <Tag color={record.isOwned ? 'blue' : 'default'}>
-          {record.isOwned ? 'Owned by me' : 'Shared with me'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Updated',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 180,
-      render: (date) => (date ? new Date(date).toLocaleString() : '—'),
-    },
-  ];
-
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <Typography.Title level={3} className="!mb-1">
-            Documents
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            All documents you can access — filter by ownership
-          </Typography.Text>
+      <div className="mb-5">
+        <div className="flex items-start justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
+          <div>
+            <Typography.Title level={3} className="!mb-1">
+              Documents
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              Browse and manage all documents you can access
+            </Typography.Text>
+          </div>
+          <Button
+            type="primary"
+            size="middle"
+            icon={<PlusOutlined />}
+            className="shrink-0 max-sm:self-start"
+            onClick={() => setModalOpen(true)}
+          >
+            Add New
+          </Button>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          size="large"
-          className="gdocs-share-button !h-10"
-          onClick={() => setModalOpen(true)}
-        >
-          Add document
-        </Button>
       </div>
 
-      <Segmented
-        options={FILTERS}
-        value={filter}
-        onChange={setFilter}
-        className="mb-4"
-        block
+      <DocumentsToolbar
+        search={search}
+        onSearchChange={setSearch}
+        filter={filter}
+        onFilterChange={setFilter}
+        view={view}
+        onViewChange={setView}
       />
 
-      <Table
-        rowKey="_id"
-        columns={columns}
-        dataSource={documents}
+      <DocumentCards
+        documents={documents}
+        view={view}
         loading={loading}
-        pagination={{ pageSize: 10, showSizeChanger: false }}
-        locale={{
-          emptyText: (
-            <Empty description="No documents found">
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-                Create your first document
-              </Button>
-            </Empty>
-          ),
-        }}
-        className="dashboard-documents-table"
+        pagination={pagination}
+        onPageChange={setPage}
+        onAddClick={() => setModalOpen(true)}
       />
 
       <Modal
@@ -172,7 +148,6 @@ export default function DocumentsView({ workspaces = [] }) {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onPressEnter={handleCreate}
-          size="large"
           autoFocus
         />
       </Modal>
