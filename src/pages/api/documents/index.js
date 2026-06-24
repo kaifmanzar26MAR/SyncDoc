@@ -1,6 +1,7 @@
 import { requireApiSession } from '@shared/utils/api-auth';
 import { connectDB } from '@shared/lib/db/mongoose';
 import { Document, DocumentMember, ROLES } from '@shared/data/models';
+import crypto from 'crypto';
 import { documentCreateSchema } from '@shared/lib/validations/schemas';
 import { getWorkspaceAccess } from '@shared/lib/security/authorize';
 import { rateLimit } from '@shared/lib/security/rate-limit';
@@ -42,6 +43,8 @@ export default async function handler(req, res) {
       content: sanitizeHtml(parsed.data.content),
       createdBy: session.user.id,
       currentVersion: 1,
+      shareLinkToken: crypto.randomUUID(),
+      shareLinkEnabled: true,
     });
 
     await DocumentMember.create({

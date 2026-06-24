@@ -11,9 +11,9 @@ export function getAntdTheme(mode = 'light') {
     cssVar: { key: 'syncdoc' },
     algorithm: isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
     token: {
-      colorPrimary: 'var(--preset-primary)',
-      colorPrimaryHover: 'var(--preset-primary-hover)',
-      colorPrimaryActive: 'var(--preset-primary-active)',
+      colorPrimary: 'var(--gdocs-primary, #1a73e8)',
+      colorPrimaryHover: '#1765cc',
+      colorPrimaryActive: '#185abc',
       colorSuccess: 'var(--preset-success)',
       colorWarning: 'var(--preset-warning)',
       colorError: 'var(--preset-error)',

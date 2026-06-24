@@ -1,0 +1,141 @@
+/* Google Docs–inspired document editor chrome (light mode) */
+
+.gdocs-header {
+  background: var(--gdocs-toolbar-bg, #fff);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
+.gdocs-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 4px 8px;
+  min-height: 56px;
+  gap: 12px;
+}
+
+.gdocs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.gdocs-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gdocs-header-meta {
+  align-items: center;
+  gap: 12px;
+}
+
+.gdocs-toolbar-actions {
+  align-items: center;
+  gap: 2px;
+  padding-right: 8px;
+  border-right: 1px solid var(--gdocs-border, #dadce0);
+  margin-right: 4px;
+}
+
+.gdocs-doc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--gdocs-primary, #1a73e8);
+  font-size: 20px;
+  transition: background var(--duration-fast);
+}
+
+.gdocs-doc-icon:hover {
+  background: var(--gdocs-hover-surface, #f1f3f4);
+}
+
+.gdocs-title-input {
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  color: var(--gdocs-text, #202124) !important;
+  max-width: 480px;
+}
+
+.gdocs-title-input input {
+  font-size: 18px !important;
+  font-weight: 400 !important;
+}
+
+.gdocs-share-button {
+  background: var(--gdocs-share-bg, #c2e7ff) !important;
+  border: none !important;
+  color: var(--gdocs-share-text, #001d35) !important;
+  font-weight: 500 !important;
+  border-radius: 24px !important;
+  padding-inline: 20px !important;
+  height: 40px !important;
+  box-shadow: none !important;
+}
+
+.gdocs-share-button:hover {
+  background: var(--gdocs-share-bg-hover, #a8daf5) !important;
+  color: var(--gdocs-share-text, #001d35) !important;
+}
+
+.gdocs-share-modal .gdocs-share-btn {
+  background: var(--gdocs-primary, #1a73e8) !important;
+  border-radius: 24px !important;
+}
+
+.gdocs-avatar {
+  background: var(--gdocs-primary, #1a73e8) !important;
+}
+
+.gdocs-save-dirty {
+  color: var(--gdocs-primary, #1a73e8) !important;
+}
+
+/* Document canvas */
+.gdocs-page-canvas {
+  background: var(--gdocs-canvas-bg, #f9fbfd);
+  min-height: calc(100vh - 120px);
+  padding: 24px 0 48px;
+  overflow: auto;
+}
+
+.gdocs-page {
+  max-width: 816px;
+  margin: 0 auto;
+  background: #fff;
+  min-height: 1056px;
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  border-radius: 2px;
+  padding: 72px 96px;
+}
+
+@media (max-width: 900px) {
+  .gdocs-page {
+    padding: 48px 32px;
+    margin: 0 16px;
+  }
+}
+
+.gdocs-page .quill-editor .ql-toolbar {
+  border-bottom: 1px solid var(--gdocs-border, #dadce0) !important;
+  padding-bottom: 8px !important;
+  margin-bottom: 16px;
+}
+
+.gdocs-page .quill-editor .ql-editor {
+  padding: 0;
+  min-height: 600px;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: var(--gdocs-text, #202124);
+}

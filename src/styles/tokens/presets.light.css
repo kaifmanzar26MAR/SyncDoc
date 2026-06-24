@@ -6,8 +6,20 @@
 [data-theme='light'] {
   color-scheme: light;
 
+  /* Google Docs–style surfaces */
+  --gdocs-canvas-bg: #f9fbfd;
+  --gdocs-toolbar-bg: #ffffff;
+  --gdocs-border: #dadce0;
+  --gdocs-hover-surface: #f1f3f4;
+  --gdocs-text: #202124;
+  --gdocs-text-secondary: #5f6368;
+  --gdocs-primary: #1a73e8;
+  --gdocs-share-bg: #c2e7ff;
+  --gdocs-share-bg-hover: #a8daf5;
+  --gdocs-share-text: #001d35;
+
   /* Surfaces */
-  --preset-bg-base: var(--color-neutral-50);
+  --preset-bg-base: var(--gdocs-canvas-bg);
   --preset-bg-subtle: var(--color-neutral-100);
   --preset-bg-elevated: var(--color-neutral-0);
   --preset-bg-muted: var(--color-neutral-100);
@@ -29,9 +41,9 @@
   --preset-border-focus: var(--color-brand-500);
 
   /* Brand / accent */
-  --preset-primary: var(--color-brand-500);
-  --preset-primary-hover: var(--color-brand-600);
-  --preset-primary-active: var(--color-brand-700);
+  --preset-primary: var(--gdocs-primary);
+  --preset-primary-hover: #1765cc;
+  --preset-primary-active: #185abc;
   --preset-primary-subtle: var(--color-brand-50);
   --preset-primary-muted: var(--color-brand-100);
 

@@ -86,17 +86,11 @@ class MailService {
     recipientName,
     sharedByName,
     documentTitle,
-    documentId,
+    documentUrl,
     workspaceId,
     role,
     workspaceName,
   }) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const documentUrl =
-      workspaceId && documentId
-        ? `${appUrl}/workspace/${workspaceId}/document/${documentId}`
-        : appUrl;
-
     return this.send({
       to,
       type: MAIL_TYPES.DOCUMENT_SHARED,
@@ -104,7 +98,7 @@ class MailService {
         recipientName,
         sharedByName,
         documentTitle,
-        documentUrl,
+        documentUrl: documentUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         role,
         workspaceName,
       },

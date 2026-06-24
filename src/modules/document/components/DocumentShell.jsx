@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useCallback, useMemo } from 'react';
-import { Layout, Input, Typography, Card } from 'antd';
-import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
+import { useSession } from 'next-auth/react';
 import { useDocumentStore } from '@shared/stores/useDocumentStore';
 import { useSyncStore } from '@shared/stores/useSyncStore';
-import EditorToolbar from '@shared/components/editor/EditorToolbar';
-import PresencePanel from '@shared/components/collaboration/PresencePanel';
+import DocumentHeader from '@document/components/DocumentHeader';
 import VersionHistoryDrawer from '@shared/components/version/VersionHistoryDrawer';
 import { createSyncWorker } from '@shared/lib/sync-engine';
 import { saveDocumentLocal, getDocumentLocal, saveVersionLocal } from '@shared/lib/db/dexie';
@@ -17,8 +15,6 @@ const QuillEditor = dynamic(() => import('@shared/components/editor/QuillEditor'
   ssr: false,
   loading: () => <div className="p-8 text-center text-gray-400">Loading editor...</div>,
 });
-
-const { Content } = Layout;
 
 export default function DocumentShell({ documentId, workspaceId, initialDocument, userRole }) {
   const { data: session } = useSession();
@@ -30,7 +26,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const setTitle = useDocumentStore((s) => s.setTitle);
   const setContent = useDocumentStore((s) => s.setContent);
   const markClean = useDocumentStore((s) => s.markClean);
-  const aiPanelOpen = useDocumentStore((s) => s.aiPanelOpen);
 
   const setStatus = useSyncStore((s) => s.setStatus);
   const setPendingCount = useSyncStore((s) => s.setPendingCount);
@@ -87,9 +82,8 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const handleTitleChange = useCallback(
     (e) => {
       if (readOnly) return;
-      const newTitle = e.target.value;
-      setTitle(newTitle);
-      syncWorker.recordEdit('TITLE_UPDATE', { title: newTitle });
+      setTitle(e.target.value);
+      syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
     },
     [readOnly, setTitle, syncWorker]
   );
@@ -145,34 +139,24 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   );
 
   return (
-    <Layout className="min-h-screen flex flex-col">
-      <EditorToolbar onSnapshot={handleSnapshot} onSave={handleSave} readOnly={readOnly} />
-      <div className="flex flex-1 overflow-hidden">
-        <Content className="flex flex-col flex-1 bg-white dark:bg-gray-900">
-          <div className="px-8 pt-6 pb-2">
-            <Input
-              variant="borderless"
-              value={title}
-              onChange={handleTitleChange}
-              readOnly={readOnly}
-              className="!text-2xl !font-semibold !p-0"
-              placeholder="Untitled"
-            />
-          </div>
-          <div className="flex-1 px-8 pb-8 overflow-auto">
-            <QuillEditor content={content} onChange={handleContentChange} readOnly={readOnly} />
-          </div>
-        </Content>
-        <PresencePanel />
-        {aiPanelOpen && (
-          <Card title="AI Assistant" className="w-72 shrink-0 rounded-none border-l" size="small">
-            <Typography.Paragraph type="secondary" className="text-sm">
-              AI assistant panel — integrate your preferred LLM API here for summarization, rewriting, and suggestions.
-            </Typography.Paragraph>
-          </Card>
-        )}
+    <div className="min-h-screen flex flex-col bg-[var(--gdocs-canvas-bg)]">
+      <DocumentHeader
+        title={title}
+        onTitleChange={handleTitleChange}
+        readOnly={readOnly}
+        onSnapshot={handleSnapshot}
+        onSave={handleSave}
+        documentId={documentId}
+        workspaceId={workspaceId}
+      />
+
+      <div className="gdocs-page-canvas flex-1">
+        <div className="gdocs-page">
+          <QuillEditor content={content} onChange={handleContentChange} readOnly={readOnly} />
+        </div>
       </div>
+
       <VersionHistoryDrawer documentId={documentId} onRestore={handleRestore} />
-    </Layout>
+    </div>
   );
 }

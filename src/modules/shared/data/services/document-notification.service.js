@@ -2,10 +2,8 @@ import mailService from '@shared/mail/mail.service';
 import { connectDB } from '@shared/lib/db/mongoose';
 import { Document, Workspace, User } from '@shared/data/models';
 
-/**
- * Notify a user that a document was shared with them.
- * Call after creating/updating a DocumentMember record.
- */
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export async function notifyDocumentShared({
   recipientEmail,
   recipientName,
@@ -24,41 +22,38 @@ export async function notifyDocumentShared({
   if (!document) throw new Error('Document not found');
 
   const workspace = await Workspace.findById(document.workspaceId).lean();
+  const docUrl = `${appUrl()}/workspace/${document.workspaceId}/document/${documentId}`;
 
   return mailService.sendDocumentShared({
     to: recipientEmail,
     recipientName: recipientName || recipient?.name || recipientEmail,
     sharedByName: sharedBy?.name || 'A SyncDoc user',
     documentTitle: document.title,
-    documentId: document._id.toString(),
+    documentUrl: docUrl,
     workspaceId: document.workspaceId.toString(),
     workspaceName: workspace?.name,
     role,
   });
 }
 
-/**
- * Invite a non-registered user to collaborate on a document.
- */
 export async function notifyDocumentInvite({
   recipientEmail,
-  recipientName,
   invitedByUserId,
+  documentId,
   documentTitle,
-  role = 'EDITOR',
-  message,
-  inviteToken,
+  role = 'VIEWER',
+  callbackUrl,
 }) {
   await connectDB();
   const invitedBy = await User.findById(invitedByUserId).lean();
+  const registerUrl = `${appUrl()}/register?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   return mailService.sendDocumentInvite({
     to: recipientEmail,
-    recipientName,
+    recipientName: recipientEmail,
     invitedByName: invitedBy?.name || 'A SyncDoc user',
     documentTitle,
     role,
-    message,
-    inviteToken,
+    inviteUrl: registerUrl,
   });
 }

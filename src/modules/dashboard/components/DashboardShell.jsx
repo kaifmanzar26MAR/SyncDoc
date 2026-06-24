@@ -11,8 +11,6 @@ import {
   LogoutOutlined,
   UserOutlined,
   HomeOutlined,
-  MoonOutlined,
-  SunOutlined,
 } from '@ant-design/icons';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -31,8 +29,6 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const setWorkspace = useAppStore((s) => s.setWorkspace);
   const currentWorkspaceId = useAppStore((s) => s.currentWorkspaceId);
-  const theme = useAppStore((s) => s.theme);
-  const toggleTheme = useAppStore((s) => s.toggleTheme);
 
   const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [documents, setDocuments] = useState([]);
@@ -163,12 +159,6 @@ export default function DashboardShell({ children, initialWorkspaces = [] }) {
         <Header className="syncdoc-header !px-4 flex items-center justify-between !border-b">
           <Button type="text" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={toggleSidebar} />
           <div className="flex items-center gap-4">
-            <Button
-              type="text"
-              aria-label="Toggle theme"
-              icon={theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
-              onClick={toggleTheme}
-            />
             <NetworkStatusBadge />
             <SyncStatusIndicator />
             <Dropdown menu={userMenu} placement="bottomRight">

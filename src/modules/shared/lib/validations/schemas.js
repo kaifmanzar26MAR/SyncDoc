@@ -30,6 +30,15 @@ export const documentUpdateSchema = z.object({
   content: z.string().max(500_000).optional(),
 });
 
+export const documentShareEmailSchema = z.object({
+  email: z.string().email().max(255).toLowerCase(),
+  role: z.enum(['EDITOR', 'VIEWER']),
+});
+
+export const documentShareLinkSchema = z.object({
+  linkEnabled: z.boolean(),
+});
+
 export const syncOperationSchema = z.object({
   clientId: z.string().uuid(),
   operationType: z.enum(['CONTENT_UPDATE', 'TITLE_UPDATE', 'YJS_UPDATE', 'SNAPSHOT', 'RESTORE']),

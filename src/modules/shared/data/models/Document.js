@@ -8,6 +8,9 @@ const DocumentSchema = new mongoose.Schema(
     yjsState: { type: Buffer, default: null },
     currentVersion: { type: Number, default: 1 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    shareLinkEnabled: { type: Boolean, default: true },
+    shareLinkToken: { type: String, unique: true, sparse: true, index: true },
+    shareLinkRole: { type: String, enum: ['VIEWER'], default: 'VIEWER' },
   },
   { timestamps: true }
 );

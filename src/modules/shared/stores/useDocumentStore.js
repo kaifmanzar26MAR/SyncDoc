@@ -6,7 +6,6 @@ export const useDocumentStore = create((set, get) => ({
   content: '',
   isDirty: false,
   versionDrawerOpen: false,
-  aiPanelOpen: false,
 
   setActiveDocument: (doc) =>
     set({
@@ -21,7 +20,6 @@ export const useDocumentStore = create((set, get) => ({
   markClean: () => set({ isDirty: false }),
 
   toggleVersionDrawer: () => set((s) => ({ versionDrawerOpen: !s.versionDrawerOpen })),
-  toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setVersionDrawerOpen: (open) => set({ versionDrawerOpen: open }),
 
   getSnapshot: () => {

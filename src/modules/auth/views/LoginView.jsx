@@ -8,9 +8,12 @@ import Link from 'next/link';
 
 export default function LoginView() {
   const router = useRouter();
+  const { callbackUrl } = router.query;
   const [loading, setLoading] = useState(false);
   const [mustReset, setMustReset] = useState(false);
   const [form] = Form.useForm();
+
+  const redirectTo = typeof callbackUrl === 'string' ? callbackUrl : '/dashboard';
 
   const onFinish = async (values) => {
     setLoading(true);
@@ -27,7 +30,7 @@ export default function LoginView() {
         return;
       }
 
-      router.push('/dashboard');
+      router.push(redirectTo);
     } finally {
       setLoading(false);
     }
@@ -66,7 +69,7 @@ export default function LoginView() {
         </Form>
 
         <div className="text-center mt-4 text-sm">
-          No account? <Link href="/register" className="text-indigo-600">Register</Link>
+          No account? <Link href={typeof callbackUrl === 'string' ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/register'} className="text-indigo-600">Register</Link>
         </div>
       </Card>
     </div>

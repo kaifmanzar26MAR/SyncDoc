@@ -2,6 +2,7 @@
 @import './tokens/index.css';
 @import './components/editor.css';
 @import './components/layout.css';
+@import './components/gdocs.css';
 
 @theme inline {
   --color-background: var(--app-bg);

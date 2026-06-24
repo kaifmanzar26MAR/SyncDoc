@@ -3,9 +3,16 @@
 import { useState } from 'react';
 import { Form, Input, Button, Card, Typography, Steps, message } from 'antd';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { registerUser, verifyOtp } from '@auth-module/data/service/AuthApis';
 
 export default function RegisterView() {
+  const router = useRouter();
+  const { callbackUrl } = router.query;
+  const loginHref =
+    typeof callbackUrl === 'string'
+      ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : '/login';
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -77,14 +84,14 @@ export default function RegisterView() {
             <Typography.Paragraph>
               A default password has been sent to your email. Use it to sign in and reset your password.
             </Typography.Paragraph>
-            <Link href="/login">
+            <Link href={loginHref}>
               <Button type="primary" size="large">Go to Login</Button>
             </Link>
           </div>
         )}
 
         <div className="text-center mt-4 text-sm">
-          Have an account? <Link href="/login" className="text-indigo-600">Sign in</Link>
+          Have an account? <Link href={loginHref} className="text-indigo-600">Sign in</Link>
         </div>
       </Card>
     </div>
