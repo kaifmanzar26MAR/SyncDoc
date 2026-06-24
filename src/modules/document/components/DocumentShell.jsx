@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useLayoutEffect, useState, useRef } from 'react';
+import { useEffect, useCallback, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Button, Spin } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
@@ -81,26 +81,50 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const setStatus = useSyncStore((s) => s.setStatus);
   const setPendingCount = useSyncStore((s) => s.setPendingCount);
 
-  const syncWorker = useMemo(
-    () =>
-      createSyncWorker(documentId, {
-        onStatusChange: setStatus,
-        onPendingChange: setPendingCount,
-        onNetworkChange: (status) => useSyncStore.getState().setNetworkStatus(status),
-        onDocumentMerged: (merged) => {
-          if (compareActiveRef.current) return;
-          applyRemoteUpdate({ title: merged.title, content: merged.content });
-          markClean();
-        },
-      }),
-    [documentId, setStatus, setPendingCount, applyRemoteUpdate, markClean],
-  );
+  const syncCallbacksRef = useRef({
+    onStatusChange: () => {},
+    onPendingChange: () => {},
+    onNetworkChange: () => {},
+    onDocumentMerged: () => {},
+  });
+
+  syncCallbacksRef.current = {
+    onStatusChange: setStatus,
+    onPendingChange: setPendingCount,
+    onNetworkChange: (status) => useSyncStore.getState().setNetworkStatus(status),
+    onDocumentMerged: (merged) => {
+      if (compareActiveRef.current) return;
+      applyRemoteUpdate({ title: merged.title, content: merged.content });
+      markClean();
+    },
+  };
+
+  const syncWorkerRef = useRef(null);
+
+  useEffect(() => {
+    const worker = createSyncWorker(documentId, {
+      onStatusChange: (...args) => syncCallbacksRef.current.onStatusChange(...args),
+      onPendingChange: (...args) => syncCallbacksRef.current.onPendingChange(...args),
+      onNetworkChange: (...args) => syncCallbacksRef.current.onNetworkChange(...args),
+      onDocumentMerged: (...args) => syncCallbacksRef.current.onDocumentMerged(...args),
+    });
+
+    syncWorkerRef.current = worker;
+    worker.init();
+
+    return () => {
+      worker.destroy();
+      if (syncWorkerRef.current === worker) {
+        syncWorkerRef.current = null;
+      }
+    };
+  }, [documentId]);
 
   const { sessionId, onEditActivity } = useEditSession(documentId, readOnly);
 
   useEffect(() => {
-    syncWorker.setEditSession(sessionId);
-  }, [syncWorker, sessionId]);
+    syncWorkerRef.current?.setEditSession(sessionId);
+  }, [sessionId]);
 
   const handleRemoteChange = useCallback(
     async (payload) => {
@@ -160,14 +184,12 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     }
 
     loadDocument();
-    syncWorker.init();
 
     return () => {
       active = false;
-      syncWorker.destroy();
       setActiveDocument(null);
     };
-  }, [documentId, workspaceId, initialDocument, setActiveDocument, syncWorker]);
+  }, [documentId, workspaceId, initialDocument, setActiveDocument]);
 
   useEffect(() => {
     if (!compareVersion) {
@@ -187,7 +209,9 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       };
     }
 
-    fetch(`/api/documents/${documentId}/edit-session/${compareVersion.sessionId}/changes`)
+    fetch(`/api/documents/${documentId}/edit-session/${compareVersion.sessionId}/changes`, {
+      credentials: 'same-origin',
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (active) setCompareChangeLogs(data?.logs || []);
@@ -218,22 +242,22 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
     (html) => {
       if (readOnly || !isDocumentReady || compareActiveRef.current) return;
       setContent(html);
-      syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
+      syncWorkerRef.current?.recordEdit('CONTENT_UPDATE', { content: html });
       emitContentChange(html);
       onEditActivity();
     },
-    [readOnly, isDocumentReady, setContent, syncWorker, emitContentChange, onEditActivity],
+    [readOnly, isDocumentReady, setContent, emitContentChange, onEditActivity],
   );
 
   const handleTitleChange = useCallback(
     (e) => {
-      if (readOnly || !isDocumentReady) return;
+      if (readOnly || !isDocumentReady || compareActiveRef.current) return;
       setTitle(e.target.value);
-      syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
+      syncWorkerRef.current?.recordEdit('TITLE_UPDATE', { title: e.target.value });
       emitTitleChange(e.target.value);
       onEditActivity();
     },
-    [readOnly, isDocumentReady, setTitle, syncWorker, emitTitleChange, onEditActivity],
+    [readOnly, isDocumentReady, setTitle, emitTitleChange, onEditActivity],
   );
 
   const handleSave = useCallback(async () => {
@@ -276,7 +300,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       });
 
       markClean();
-      syncWorker.recordEdit('RESTORE', {
+      syncWorkerRef.current?.recordEdit('RESTORE', {
         title: data.document.title,
         content: data.document.content,
         restoreOf: version.version,
@@ -288,7 +312,6 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       workspaceId,
       setTitle,
       setContent,
-      syncWorker,
       onEditActivity,
       markClean,
       clearCompare,

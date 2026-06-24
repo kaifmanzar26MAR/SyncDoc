@@ -12,6 +12,14 @@ import {
 
 const DEBOUNCE_MS = 500;
 
+function isAbortError(err) {
+  return err?.name === 'AbortError';
+}
+
+function isNetworkFetchError(err) {
+  return err instanceof TypeError && /fetch|network/i.test(err.message || '');
+}
+
 export class SyncWorker {
   constructor(documentId, callbacks = {}) {
     this.documentId = documentId;
@@ -19,9 +27,16 @@ export class SyncWorker {
     this.clientId = getOrCreateClientId();
     this.networkMonitor = new NetworkMonitor();
     this.debounceTimer = null;
+    this.pullTimer = null;
     this.syncing = false;
     this.syncedKeys = new Set();
     this.editSessionId = null;
+    this.destroyed = false;
+    this.abortController = null;
+  }
+
+  setCallbacks(callbacks) {
+    this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
   setEditSession(sessionId) {
@@ -29,10 +44,13 @@ export class SyncWorker {
   }
 
   async init() {
+    if (this.destroyed) return;
+
     const meta = await getSyncMetadata(this.documentId);
     if (meta?.lastClock) initClockFromMetadata(meta.lastClock);
 
     this.networkMonitor.start((online) => {
+      if (this.destroyed) return;
       this.callbacks.onNetworkChange?.(online ? 'online' : 'offline');
       if (online) {
         this.scheduleSync();
@@ -49,17 +67,24 @@ export class SyncWorker {
   }
 
   destroy() {
+    this.destroyed = true;
     this.networkMonitor.stop();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.pullTimer) clearInterval(this.pullTimer);
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
   }
 
   async recordEdit(operationType, payload) {
+    if (this.destroyed) return null;
+
     const { operation, pendingCount } = await addToQueue(
       this.documentId,
       this.clientId,
       operationType,
-      payload
+      payload,
     );
 
     logOperation(this.documentId, operation);
@@ -76,21 +101,28 @@ export class SyncWorker {
   }
 
   scheduleSync() {
+    if (this.destroyed) return;
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => this.push(), DEBOUNCE_MS);
   }
 
   async push() {
-    if (!isOnline() || this.syncing) return;
+    if (this.destroyed || !isOnline() || this.syncing) return;
+
     this.syncing = true;
     this.callbacks.onStatusChange?.('syncing');
+
+    if (this.abortController) this.abortController.abort();
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
 
     try {
       const queue = await getQueueForDocument(this.documentId);
       const unsynced = queue.filter((op) => !this.syncedKeys.has(op.idempotencyKey));
+
       if (!unsynced.length) {
-        await this.pullAndMerge();
-        this.callbacks.onStatusChange?.('idle');
+        await this.pullAndMerge(signal);
+        if (!this.destroyed) this.callbacks.onStatusChange?.('idle');
         return;
       }
 
@@ -98,6 +130,8 @@ export class SyncWorker {
       const res = await fetch(`/api/documents/${this.documentId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        signal,
         body: JSON.stringify({
           operations: unsynced.map((op) => ({
             clientId: op.clientId,
@@ -111,20 +145,36 @@ export class SyncWorker {
         }),
       });
 
-      if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
+      if (this.destroyed || signal.aborted) return;
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Sync failed: ${res.status}`);
+      }
 
       const data = await res.json();
       await this.handleSyncResponse(unsynced, data);
-      this.callbacks.onStatusChange?.('idle');
+
+      if (!this.destroyed) this.callbacks.onStatusChange?.('idle');
     } catch (err) {
-      console.error('[SyncWorker] push failed:', err);
-      this.callbacks.onStatusChange?.('error');
+      if (this.destroyed || isAbortError(err)) return;
+      if (isNetworkFetchError(err)) {
+        console.warn('[SyncWorker] push skipped — server unreachable');
+      } else {
+        console.error('[SyncWorker] push failed:', err);
+      }
+      if (!this.destroyed) this.callbacks.onStatusChange?.('error');
     } finally {
       this.syncing = false;
+      if (this.abortController?.signal === signal) {
+        this.abortController = null;
+      }
     }
   }
 
   async handleSyncResponse(localOps, data) {
+    if (this.destroyed) return;
+
     const ids = localOps.map((op) => op.id);
     localOps.forEach((op) => this.syncedKeys.add(op.idempotencyKey));
     const pendingCount = await acknowledgeSynced(ids);
@@ -144,7 +194,7 @@ export class SyncWorker {
         {
           ...data.document,
           yjsState: data.document.yjsState ? base64ToUint8(data.document.yjsState) : null,
-        }
+        },
       );
 
       await saveDocumentLocal({
@@ -166,12 +216,12 @@ export class SyncWorker {
     });
   }
 
-  async pullAndMerge() {
-    if (!isOnline() || this.syncing) return;
+  async pullAndMerge(signal) {
+    if (this.destroyed || !isOnline() || this.syncing) return;
 
     try {
-      const data = await this.pull();
-      if (!data?.document) return;
+      const data = await this.pull(signal);
+      if (!data?.document || this.destroyed) return;
 
       const local = await getDocumentLocal(this.documentId);
       const remoteOps = data.remoteOperations?.length ?? 0;
@@ -182,14 +232,22 @@ export class SyncWorker {
 
       await this.handleSyncResponse([], data);
     } catch (err) {
-      console.error('[SyncWorker] pull failed:', err);
+      if (this.destroyed || isAbortError(err)) return;
+      if (!isNetworkFetchError(err)) {
+        console.error('[SyncWorker] pull failed:', err);
+      }
     }
   }
 
-  async pull() {
-    if (!isOnline()) return null;
+  async pull(signal) {
+    if (this.destroyed || !isOnline()) return null;
+
     const meta = await getSyncMetadata(this.documentId);
-    const res = await fetch(`/api/documents/${this.documentId}/sync?since=${meta?.lastPullClock || 0}`);
+    const res = await fetch(`/api/documents/${this.documentId}/sync?since=${meta?.lastPullClock || 0}`, {
+      credentials: 'same-origin',
+      signal,
+    });
+
     if (!res.ok) return null;
     return res.json();
   }

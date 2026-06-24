@@ -64,13 +64,17 @@ export function useEditSession(documentId, readOnly) {
     if (readOnly || !documentId) return;
 
     let active = true;
+    const leaveSessionRef = { current: null };
 
     async function joinSession() {
       if (joiningRef.current) return;
       joiningRef.current = true;
 
       try {
-        const res = await fetch(`/api/documents/${documentId}/edit-session`, { method: 'POST' });
+        const res = await fetch(`/api/documents/${documentId}/edit-session`, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
         if (!res.ok || !active) return;
 
         const data = await res.json();
@@ -80,19 +84,43 @@ export function useEditSession(documentId, readOnly) {
           setSessionId(sid);
         }
       } catch (err) {
-        console.error('[EditSession] join failed:', err);
+        if (active) console.error('[EditSession] join failed:', err);
       } finally {
         joiningRef.current = false;
       }
     }
 
+    leaveSessionRef.current = async () => {
+      const sid = sessionIdRef.current;
+      if (!sid || !documentId) return;
+
+      if (snapshotTimerRef.current) {
+        clearTimeout(snapshotTimerRef.current);
+        snapshotTimerRef.current = null;
+      }
+
+      try {
+        await fetch(`/api/documents/${documentId}/edit-session`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ sessionId: sid }),
+        });
+      } catch (err) {
+        console.error('[EditSession] leave failed:', err);
+      }
+
+      sessionIdRef.current = null;
+      setSessionId(null);
+    };
+
     joinSession();
 
     return () => {
       active = false;
-      leaveSession();
+      leaveSessionRef.current?.();
     };
-  }, [documentId, readOnly, leaveSession]);
+  }, [documentId, readOnly]);
 
   return { sessionId, onEditActivity, leaveSession };
 }
