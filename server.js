@@ -30,6 +30,8 @@ app.prepare().then(() => {
     cors: { origin: process.env.NEXT_PUBLIC_APP_URL || '*', methods: ['GET', 'POST'] },
   });
 
+  globalThis.__syncdoc_io = io;
+
   io.on('connection', (socket) => {
     socket.on('presence:join', async ({ documentId, userId, name, color }) => {
       if (!documentId || !userId) return;
@@ -76,8 +78,9 @@ app.prepare().then(() => {
       }
     });
 
-    socket.on('doc:update', ({ documentId, userId, update }) => {
-      socket.to(`document:${documentId}`).emit('doc:update', { documentId, userId, update });
+    socket.on('doc:change', (payload) => {
+      if (!payload?.documentId || !payload?.userId) return;
+      socket.to(`document:${payload.documentId}`).emit('doc:change', payload);
     });
 
     socket.on('disconnect', () => {

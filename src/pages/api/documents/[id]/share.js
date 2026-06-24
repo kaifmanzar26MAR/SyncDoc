@@ -1,11 +1,18 @@
 import { requireApiSession } from '@shared/utils/api-auth';
 import { sendJson, methodNotAllowed, getClientIpFromReq } from '@shared/utils/api-response';
 import { rateLimit } from '@shared/lib/security/rate-limit';
-import { documentShareEmailSchema, documentShareLinkSchema } from '@shared/lib/validations/schemas';
+import {
+  documentShareEmailSchema,
+  documentShareLinkSchema,
+  documentShareUpdateSchema,
+  documentShareRemoveSchema,
+} from '@shared/lib/validations/schemas';
 import {
   getShareSettings,
   shareDocumentByEmail,
   updateShareLink,
+  updateCollaboratorAccess,
+  removeCollaboratorAccess,
 } from '@document/data/service/share.service';
 
 export default async function handler(req, res) {
@@ -43,14 +50,32 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const parsed = documentShareLinkSchema.safeParse(req.body);
+    if (req.body?.linkEnabled !== undefined) {
+      const parsed = documentShareLinkSchema.safeParse(req.body);
+      if (!parsed.success) return sendJson(res, 400, { error: parsed.error.flatten() });
+
+      try {
+        const result = await updateShareLink({
+          documentId: id,
+          userId: session.user.id,
+          linkEnabled: parsed.data.linkEnabled,
+        });
+        return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 400, { error: err.message });
+      }
+    }
+
+    const parsed = documentShareUpdateSchema.safeParse(req.body);
     if (!parsed.success) return sendJson(res, 400, { error: parsed.error.flatten() });
 
     try {
-      const result = await updateShareLink({
+      const result = await updateCollaboratorAccess({
         documentId: id,
         userId: session.user.id,
-        linkEnabled: parsed.data.linkEnabled,
+        targetType: parsed.data.targetType,
+        targetId: parsed.data.targetId,
+        role: parsed.data.role,
       });
       return sendJson(res, 200, result);
     } catch (err) {
@@ -58,5 +83,22 @@ export default async function handler(req, res) {
     }
   }
 
-  return methodNotAllowed(res, ['GET', 'POST', 'PATCH']);
+  if (req.method === 'DELETE') {
+    const parsed = documentShareRemoveSchema.safeParse(req.body);
+    if (!parsed.success) return sendJson(res, 400, { error: parsed.error.flatten() });
+
+    try {
+      const result = await removeCollaboratorAccess({
+        documentId: id,
+        userId: session.user.id,
+        targetType: parsed.data.targetType,
+        targetId: parsed.data.targetId,
+      });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message });
+    }
+  }
+
+  return methodNotAllowed(res, ['GET', 'POST', 'PATCH', 'DELETE']);
 }

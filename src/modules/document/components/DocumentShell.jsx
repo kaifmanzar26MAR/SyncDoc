@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useLayoutEffect, useState } from 'react';
+import { useEffect, useCallback, useMemo, useLayoutEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Spin } from 'antd';
 import { useSession } from 'next-auth/react';
@@ -10,7 +10,7 @@ import DocumentHeader from '@document/components/DocumentHeader';
 import VersionHistoryDrawer from '@shared/components/version/VersionHistoryDrawer';
 import { createSyncWorker } from '@shared/lib/sync-engine';
 import { saveDocumentLocal, getDocumentLocal, saveVersionLocal } from '@shared/lib/db/dexie';
-import { usePresence } from '@document/hooks/usePresence';
+import { useDocumentSocket } from '@document/hooks/useDocumentSocket';
 
 const QuillEditor = dynamic(() => import('@shared/components/editor/QuillEditor'), {
   ssr: false,
@@ -58,6 +58,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const setActiveDocument = useDocumentStore((s) => s.setActiveDocument);
   const setTitle = useDocumentStore((s) => s.setTitle);
   const setContent = useDocumentStore((s) => s.setContent);
+  const applyRemoteUpdate = useDocumentStore((s) => s.applyRemoteUpdate);
   const markClean = useDocumentStore((s) => s.markClean);
 
   const setStatus = useSyncStore((s) => s.setStatus);
@@ -71,15 +72,44 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
         onPendingChange: setPendingCount,
         onNetworkChange: (status) => useSyncStore.getState().setNetworkStatus(status),
         onDocumentMerged: (merged) => {
-          setTitle(merged.title);
-          setContent(merged.content);
+          applyRemoteUpdate({ title: merged.title, content: merged.content });
           markClean();
         },
       }),
-    [documentId, setStatus, setPendingCount, setTitle, setContent, markClean],
+    [documentId, setStatus, setPendingCount, applyRemoteUpdate, markClean],
   );
 
-  usePresence(documentId, session?.user);
+  const socketEmittersRef = useRef({ emitContentChange: () => {}, emitTitleChange: () => {} });
+
+  const handleRemoteChange = useCallback(
+    async (payload) => {
+      const patch = {};
+      if (payload.title !== undefined) patch.title = payload.title;
+      if (payload.content !== undefined) patch.content = payload.content;
+      if (!Object.keys(patch).length) return;
+
+      applyRemoteUpdate(patch);
+
+      const local = await getDocumentLocal(documentId);
+      if (local) {
+        await saveDocumentLocal({
+          ...local,
+          ...patch,
+          updatedAt: payload.updatedAt || new Date().toISOString(),
+        });
+      }
+    },
+    [applyRemoteUpdate, documentId],
+  );
+
+  const { emitContentChange, emitTitleChange } = useDocumentSocket({
+    documentId,
+    user: session?.user,
+    readOnly,
+    onRemoteChange: handleRemoteChange,
+  });
+
+  socketEmittersRef.current = { emitContentChange, emitTitleChange };
 
   useLayoutEffect(() => {
     const serverDoc = normalizeDocument(documentId, workspaceId, initialDocument);
@@ -123,6 +153,7 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
       if (readOnly || !isDocumentReady) return;
       setContent(html);
       syncWorker.recordEdit('CONTENT_UPDATE', { content: html });
+      socketEmittersRef.current.emitContentChange(html);
     },
     [readOnly, isDocumentReady, setContent, syncWorker],
   );
@@ -130,8 +161,10 @@ export default function DocumentShell({ documentId, workspaceId, initialDocument
   const handleTitleChange = useCallback(
     (e) => {
       if (readOnly || !isDocumentReady) return;
-      setTitle(e.target.value);
-      syncWorker.recordEdit('TITLE_UPDATE', { title: e.target.value });
+      const nextTitle = e.target.value;
+      setTitle(nextTitle);
+      syncWorker.recordEdit('TITLE_UPDATE', { title: nextTitle });
+      socketEmittersRef.current.emitTitleChange(nextTitle);
     },
     [readOnly, isDocumentReady, setTitle, syncWorker],
   );

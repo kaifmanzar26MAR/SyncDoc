@@ -17,6 +17,11 @@ export const useDocumentStore = create((set, get) => ({
 
   setTitle: (title) => set({ title, isDirty: true }),
   setContent: (content) => set({ content, isDirty: true }),
+  applyRemoteUpdate: ({ title, content }) =>
+    set((state) => ({
+      title: title !== undefined ? title : state.title,
+      content: content !== undefined ? content : state.content,
+    })),
   markClean: () => set({ isDirty: false }),
 
   toggleVersionDrawer: () => set((s) => ({ versionDrawerOpen: !s.versionDrawerOpen })),

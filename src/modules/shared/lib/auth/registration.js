@@ -53,6 +53,9 @@ export async function verifyOtpAndSendPassword({ email, otp }) {
   user.otpExpiresAt = null;
   await user.save();
 
+  const { applyPendingInvitesForUser } = await import('@document/data/service/share.service');
+  await applyPendingInvitesForUser(user._id.toString(), user.email);
+
   await mailService.sendDefaultPassword({
     to: email,
     name: user.name,

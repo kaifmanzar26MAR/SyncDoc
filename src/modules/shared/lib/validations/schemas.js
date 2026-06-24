@@ -39,6 +39,17 @@ export const documentShareLinkSchema = z.object({
   linkEnabled: z.boolean(),
 });
 
+export const documentShareUpdateSchema = z.object({
+  targetType: z.enum(['member', 'invite']),
+  targetId: z.string().min(1),
+  role: z.enum(['EDITOR', 'VIEWER']),
+});
+
+export const documentShareRemoveSchema = z.object({
+  targetType: z.enum(['member', 'invite']),
+  targetId: z.string().min(1),
+});
+
 export const syncOperationSchema = z.object({
   clientId: z.string().uuid(),
   operationType: z.enum(['CONTENT_UPDATE', 'TITLE_UPDATE', 'YJS_UPDATE', 'SNAPSHOT', 'RESTORE']),

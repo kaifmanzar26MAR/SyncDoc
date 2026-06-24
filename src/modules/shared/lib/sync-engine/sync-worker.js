@@ -29,15 +29,24 @@ export class SyncWorker {
 
     this.networkMonitor.start((online) => {
       this.callbacks.onNetworkChange?.(online ? 'online' : 'offline');
-      if (online) this.scheduleSync();
+      if (online) {
+        this.scheduleSync();
+        this.pullAndMerge();
+      }
     });
 
-    if (isOnline()) this.scheduleSync();
+    if (isOnline()) {
+      this.scheduleSync();
+      await this.pullAndMerge();
+    }
+
+    this.pullTimer = setInterval(() => this.pullAndMerge(), 4000);
   }
 
   destroy() {
     this.networkMonitor.stop();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.pullTimer) clearInterval(this.pullTimer);
   }
 
   async recordEdit(operationType, payload) {
@@ -75,6 +84,7 @@ export class SyncWorker {
       const queue = await getQueueForDocument(this.documentId);
       const unsynced = queue.filter((op) => !this.syncedKeys.has(op.idempotencyKey));
       if (!unsynced.length) {
+        await this.pullAndMerge();
         this.callbacks.onStatusChange?.('idle');
         return;
       }
@@ -148,6 +158,26 @@ export class SyncWorker {
       lastClock: data.lastClock || 0,
       lastSyncedAt: new Date().toISOString(),
     });
+  }
+
+  async pullAndMerge() {
+    if (!isOnline() || this.syncing) return;
+
+    try {
+      const data = await this.pull();
+      if (!data?.document) return;
+
+      const local = await getDocumentLocal(this.documentId);
+      const remoteOps = data.remoteOperations?.length ?? 0;
+      const contentChanged = local?.content !== data.document.content;
+      const titleChanged = local?.title !== data.document.title;
+
+      if (!remoteOps && !contentChanged && !titleChanged) return;
+
+      await this.handleSyncResponse([], data);
+    } catch (err) {
+      console.error('[SyncWorker] pull failed:', err);
+    }
   }
 
   async pull() {

@@ -11,6 +11,7 @@ import {
 } from '@shared/lib/validations/schemas';
 import { rateLimit } from '@shared/lib/security/rate-limit';
 import { getClientIpFromReq, sendJson, methodNotAllowed } from '@shared/utils/api-response';
+import { broadcastDocumentChange } from '@shared/lib/socket/broadcast';
 
 function validateYjsUpdate(base64) {
   if (!base64) return true;
@@ -120,6 +121,14 @@ export default async function handler(req, res) {
     }
 
     await doc.save();
+
+    if (applied.length) {
+      broadcastDocumentChange(id, session.user.id, {
+        operationType: 'SYNC',
+        title: doc.title,
+        content: doc.content,
+      });
+    }
 
     const remoteOperations = await SyncOperation.find({
       documentId: id,
