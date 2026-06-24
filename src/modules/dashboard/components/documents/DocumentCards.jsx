@@ -23,9 +23,9 @@ export default function DocumentCards({
   if (!documents.length) {
     return (
       <Empty description="No documents found" className="py-10">
-        <Button type="primary" size="middle" icon={<PlusOutlined />} onClick={onAddClick}>
+        {/* <Button type="primary" size="middle" icon={<PlusOutlined />} onClick={onAddClick}>
           Create your first document
-        </Button>
+        </Button> */}
       </Empty>
     );
   }

@@ -9,12 +9,17 @@ const FILTER_OPTIONS = [
   { label: 'Not owned by me', value: 'shared' },
 ];
 
-const toggleBtnBase =
-  'inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border-0 bg-transparent p-1.5 text-sm text-[var(--preset-text-secondary)] transition-colors cursor-pointer';
-const toggleBtnActive =
-  'bg-[var(--sidebar-item-bg-active)] text-[var(--gdocs-primary)] hover:bg-[var(--sidebar-item-bg-active)] hover:text-[var(--gdocs-primary)]';
-const toggleBtnIdle =
-  'hover:bg-[var(--sidebar-item-bg-hover)] hover:text-[var(--preset-text-primary)]';
+const toggleWrap =
+  'inline-flex h-[42px] items-stretch gap-0.5 rounded-[8px] border-2 border-[var(--preset-border-subtle)] bg-card p-1.5';
+
+function toggleBtn(active) {
+  return [
+    'inline-flex h-full min-w-8 items-center justify-center rounded-[4px] border-0 p-0 text-sm transition-colors cursor-pointer',
+    active
+      ? '!bg-[var(--sidebar-item-bg-active)] !text-[var(--gdocs-primary)] font-medium shadow-sm'
+      : 'bg-transparent text-[var(--preset-text-secondary)] hover:bg-[var(--sidebar-item-bg-hover)] hover:text-[var(--preset-text-primary)]',
+  ].join(' ');
+}
 
 export default function DocumentsToolbar({
   search,
@@ -46,14 +51,10 @@ export default function DocumentsToolbar({
           popupMatchSelectWidth={false}
         />
 
-        <div
-          className="inline-flex items-center gap-0.5 rounded-[8px] border-2 border-[var(--preset-border-subtle)] bg-card p-[4px]"
-          role="group"
-          aria-label="View mode"
-        >
+        <div className={toggleWrap} role="group" aria-label="View mode">
           <button
             type="button"
-            className={`${toggleBtnBase} ${view === 'list' ? toggleBtnActive : toggleBtnIdle}`}
+            className={toggleBtn(view === 'list')}
             onClick={() => onViewChange('list')}
             aria-label="List view"
             aria-pressed={view === 'list'}
@@ -62,7 +63,7 @@ export default function DocumentsToolbar({
           </button>
           <button
             type="button"
-            className={`${toggleBtnBase} ${view === 'grid' ? toggleBtnActive : toggleBtnIdle}`}
+            className={toggleBtn(view === 'grid')}
             onClick={() => onViewChange('grid')}
             aria-label="Grid view"
             aria-pressed={view === 'grid'}
