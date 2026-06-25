@@ -3,6 +3,7 @@ import { connectDB } from '@shared/lib/db/mongoose';
 import { authorizeDocument } from '@shared/lib/security/authorize';
 import { documentUpdateSchema, sanitizeHtml } from '@shared/lib/validations/schemas';
 import { sendJson, methodNotAllowed } from '@shared/utils/api-response';
+import { broadcastDocumentChange } from '@shared/lib/socket/broadcast';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -36,6 +37,15 @@ export default async function handler(req, res) {
 
     const { Document } = await import('@shared/data/models');
     const doc = await Document.findByIdAndUpdate(id, updates, { new: true }).lean();
+
+    if (updates.title !== undefined || updates.content !== undefined) {
+      broadcastDocumentChange(id, session.user.id, {
+        operationType: 'PATCH',
+        title: doc.title,
+        content: doc.content,
+      });
+    }
+
     return sendJson(res, 200, { ...doc, _id: doc._id.toString() });
   }
 

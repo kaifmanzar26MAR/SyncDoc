@@ -68,7 +68,7 @@ export default function RegisterView() {
         {step === 1 && (
           <Form layout="vertical" onFinish={verifyOtpHandler}>
             <Typography.Paragraph type="secondary">
-              Enter the 6-digit code sent to {email}
+              Enter the 6-digit code sent to {email}. If Not found in inbox, check your spam folder.
             </Typography.Paragraph>
             <Form.Item name="otp" label="OTP" rules={[{ required: true, len: 6 }]}>
               <Input size="large" maxLength={6} />
@@ -95,7 +95,7 @@ export default function RegisterView() {
                 <>
                   We sent your default password and account details to{' '}
                   <Typography.Text strong>{email}</Typography.Text>. Sign in with that password, then you will be
-                  prompted to set a new secure password.
+                  prompted to set a new secure password.If Not found in inbox, check your spam folder.
                 </>
               }
               className="mb-6"

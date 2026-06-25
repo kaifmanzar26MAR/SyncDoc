@@ -267,6 +267,10 @@ export class SyncWorker {
           ...data.document,
           yjsState: data.document.yjsState ? base64ToUint8(data.document.yjsState) : null,
         },
+        {
+          localOperations: localOps,
+          remoteOperations: data.remoteOperations || [],
+        },
       );
 
       await saveDocumentLocal({

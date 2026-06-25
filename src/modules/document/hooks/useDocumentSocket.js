@@ -85,7 +85,6 @@ export function useDocumentSocket({ documentId, user, readOnly, onRemoteChange }
 
     socket.on('doc:change', (payload) => {
       if (!payload || payload.documentId !== documentId) return;
-      if (payload.userId === user.id) return;
       onRemoteChangeRef.current?.(payload);
     });
 

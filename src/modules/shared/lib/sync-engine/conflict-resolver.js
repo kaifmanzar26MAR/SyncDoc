@@ -47,30 +47,40 @@ export function applyYjsUpdate(currentState, update) {
   }
 }
 
-export function resolveDocumentState(localDoc, remoteDoc) {
+function latestPayloadValue(operations, field) {
+  const opTypes =
+    field === 'title'
+      ? ['TITLE_UPDATE', 'RESTORE']
+      : ['CONTENT_UPDATE', 'RESTORE'];
+
+  let winner = null;
+
+  for (const op of operations) {
+    if (!opTypes.includes(op.operationType)) continue;
+    if (op.payload?.[field] === undefined) continue;
+    if (!winner || compareClocks(op, winner) >= 0) {
+      winner = op;
+    }
+  }
+
+  return winner?.payload?.[field];
+}
+
+export function resolveDocumentState(localDoc, remoteDoc, options = {}) {
+  const { remoteOperations = [], localOperations = [] } = options;
+
   const mergedYjs = mergeYjsStates(
     localDoc.yjsState ? toUint8Array(localDoc.yjsState) : null,
     remoteDoc.yjsState ? toUint8Array(remoteDoc.yjsState) : null
   );
 
-  const localMeta = {
-    title: localDoc.title,
-    content: localDoc.content,
-    logicalClock: localDoc.logicalClock || 0,
-    clientId: localDoc.clientId || '',
-  };
-  const remoteMeta = {
-    title: remoteDoc.title,
-    content: remoteDoc.content,
-    logicalClock: remoteDoc.logicalClock || 0,
-    clientId: remoteDoc.clientId || '',
-  };
-
-  const winner = resolveMetadataConflict(localMeta, remoteMeta);
+  const allOps = [...localOperations, ...remoteOperations];
+  const resolvedTitle = latestPayloadValue(allOps, 'title');
+  const resolvedContent = latestPayloadValue(allOps, 'content');
 
   return {
-    title: winner.title ?? remoteDoc.title ?? localDoc.title,
-    content: winner.content ?? remoteDoc.content ?? localDoc.content,
+    title: resolvedTitle ?? remoteDoc.title ?? localDoc.title,
+    content: resolvedContent ?? remoteDoc.content ?? localDoc.content,
     yjsState: mergedYjs,
     currentVersion: Math.max(localDoc.currentVersion || 1, remoteDoc.currentVersion || 1),
   };
