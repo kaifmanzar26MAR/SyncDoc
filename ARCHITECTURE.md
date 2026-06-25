@@ -1,5 +1,7 @@
 # SyncDoc — System Architecture
 
+Project overview, setup, and quick reference: [README.md](../README.md) (repository root).
+
 ## 1. Routing Model
 
 SyncDoc uses **Next.js Pages Router** with file-based routing under `src/pages/`. All API endpoints live in `src/pages/api/`. Feature code is organized into **domain modules** under `src/modules/`.
