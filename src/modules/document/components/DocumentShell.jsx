@@ -380,6 +380,7 @@ export default function DocumentShell({
         title={title}
         onTitleChange={handleTitleChange}
         readOnly={readOnly}
+        isOwner={userRole === 'OWNER'}
         onSave={handleSave}
         documentId={documentId}
         workspaceId={workspaceId}

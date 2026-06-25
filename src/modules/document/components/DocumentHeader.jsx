@@ -24,6 +24,7 @@ export default function DocumentHeader({
   title,
   onTitleChange,
   readOnly,
+  isOwner,
   onSave,
   documentId,
   workspaceId,
@@ -32,7 +33,7 @@ export default function DocumentHeader({
   const [shareOpen, setShareOpen] = useState(false);
   const isDirty = useDocumentStore((s) => s.isDirty);
   const toggleVersionDrawer = useDocumentStore((s) => s.toggleVersionDrawer);
-  const canShare = !readOnly;
+  const canShare = isOwner;
   const userLabel = session?.user?.name || session?.user?.email || '';
   const userAvatarColor = getUserColorFromInitial(userLabel);
 
@@ -95,14 +96,16 @@ export default function DocumentHeader({
               </Tooltip>
             )}
 
-            <Button
-              type="primary"
-              icon={<ShareAltOutlined />}
-              className="gdocs-share-button"
-              onClick={() => setShareOpen(true)}
-            >
-              Share
-            </Button>
+            {isOwner && (
+              <Button
+                type="primary"
+                icon={<ShareAltOutlined />}
+                className="gdocs-share-button"
+                onClick={() => setShareOpen(true)}
+              >
+                Share
+              </Button>
+            )}
 
             <Dropdown menu={userMenu} placement="bottomRight">
               <Avatar
